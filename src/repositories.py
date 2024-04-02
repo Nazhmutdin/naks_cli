@@ -6,6 +6,7 @@ from sqlalchemy import (
     select, 
     and_, 
     or_, 
+    any_,
     inspect, 
     delete, 
     insert, 
@@ -19,6 +20,7 @@ from sqlalchemy.orm import Session
 from re import fullmatch
 from uuid import UUID
 
+from _types import DataBaseRequest
 from shemas import BaseShema, WelderShema, WelderCertificationShema, NDTShema, UserShema
 from models import WelderCertificationModel, WelderModel, NDTModel, UserModel, Base
 from errors import DBException
@@ -30,7 +32,7 @@ __all__: list[str] = [
     "WelderRepository",
     "WelderCertificationRepository",
     "NDTRepository",
-    "UserRepository",
+    "UserRepository"
 ]
 
 
@@ -48,6 +50,10 @@ class SQLAlchemyRepository[Shema: BaseShema, Model: type[Base]](ABC):
 
 
     @abstractmethod
+    def get_many(filters: DataBaseRequest) -> list[Shema] | None: ...
+
+
+    @abstractmethod
     def add(**kwargs) -> None: ...
 
 
@@ -57,6 +63,19 @@ class SQLAlchemyRepository[Shema: BaseShema, Model: type[Base]](ABC):
 
     @abstractmethod
     def delete(ident: str | UUID) -> None: ...
+
+
+    def count(self, stmt: Select | None = None) -> int:
+        if stmt:
+            return len(self._session.execute(stmt).all())
+
+        else:
+            return self._session.execute(select(func.count()).select_from(self.__tablemodel__)).scalar()
+
+
+    @property
+    def pk_column(self) -> Column:
+        return inspect(self.__tablemodel__).primary_key[0]
 
 
     def _get(self, ident: str | UUID, column: Column | None = None) -> Shema | None:
@@ -78,7 +97,7 @@ class SQLAlchemyRepository[Shema: BaseShema, Model: type[Base]](ABC):
     def _add(self, data: dict) -> None:
         try:
             stmt = insert(self.__tablemodel__).values(**data)
-
+ 
             self._session.execute(stmt)
 
         except IntegrityError as e:
@@ -111,19 +130,6 @@ class SQLAlchemyRepository[Shema: BaseShema, Model: type[Base]](ABC):
             raise DBException(e.args[0])
 
 
-    def count(self, stmt: Select | None = None) -> int:
-        if stmt:
-            return len(self._session.execute(stmt).all())
-
-        else:
-            return self._session.execute(select(func.count()).select_from(self.__tablemodel__)).scalar()
-
-
-    @property
-    def pk_column(self) -> Column:
-        return inspect(self.__tablemodel__).primary_key[0]
-
-
 """
 ====================================================================================================
 Welder repository
@@ -131,7 +137,7 @@ Welder repository
 """
 
 
-class WelderRepository(SQLAlchemyRepository[WelderShema, WelderModel]):
+class WelderRepository(SQLAlchemyRepository[WelderShema, type[WelderModel]]):
     __tablemodel__ = WelderModel
     __shema__ = WelderShema
 
@@ -139,10 +145,31 @@ class WelderRepository(SQLAlchemyRepository[WelderShema, WelderModel]):
     def get(self, ident: str | UUID) -> WelderShema | None:
         if isinstance(ident, str) and not fullmatch(r"[A-Z0-9]{4}", ident):
             return self._get(UUID(ident))
-        elif isinstance(ident, UUID):
+        elif isinstance(ident, UUID): 
             return self._get(ident)
         else:
             return self._get(ident, self.__tablemodel__.kleymo)
+
+
+    def get_many(self, filters: WelderDataBaseRequest = {}) -> list[WelderShema] | None:
+        and_expressions, or_expressions = self._get_expressions(filters)
+
+        stmt = select(self.__tablemodel__).join(
+            WelderCertificationModel
+        ).filter(
+            and_(
+                or_(*or_expressions),
+                *and_expressions
+            )
+        ).distinct()
+
+        if filters.get("limit"):
+            stmt = stmt.limit(filters.get("limit"))
+
+        if filters.get("offset"):
+            stmt = stmt.offset(filters.get("offset"))
+
+        return [WelderShema.model_validate(welder[0], from_attributes=True) for welder in self._session.execute(stmt).all()]
 
 
     def add(self, **kwargs: t.Unpack[WelderData]):
@@ -166,6 +193,49 @@ class WelderRepository(SQLAlchemyRepository[WelderShema, WelderModel]):
         else:
             self._delete(ident, self.__tablemodel__.kleymo)
 
+    
+    def _get_expressions(self, filters: WelderDataBaseRequest) -> tuple[list[BinaryExpression], list[BinaryExpression]]:
+        and_expressions = []
+        or_expressions = []
+
+        if filters.get("names"):
+            or_expressions.append(WelderModel.name.ilike(any_(filters.get("names"))))
+
+        if filters.get("kleymos"):
+            or_expressions.append(WelderModel.kleymo.in_(filters.get("kleymos")))
+
+        if filters.get("idents"):
+            or_expressions.append(WelderModel.ident.in_(filters.get("idents")))
+
+        if filters.get("certification_numbers"):
+            or_expressions.append(WelderCertificationModel.certification_number.in_(filters.get("certification_numbers")))
+
+        if filters.get("methods"):
+            and_expressions.append(WelderCertificationModel.method.in_(filters.get("methods")))
+
+        if filters.get("gtds"):
+            and_expressions.append(WelderCertificationModel.gtd.in_(filters.get("gtds")))
+
+        if filters.get("certification_date_from"):
+            and_expressions.append(WelderCertificationModel.certification_date > filters.get("certification_date_from"))
+
+        if filters.get("certification_date_before"):
+            and_expressions.append(WelderCertificationModel.certification_date < filters.get("certification_date_before"))
+
+        if filters.get("expiration_date_from"):
+            and_expressions.append(WelderCertificationModel.expiration_date > filters.get("expiration_date_from"))
+
+        if filters.get("expiration_date_before"):
+            and_expressions.append(WelderCertificationModel.expiration_date < filters.get("expiration_date_before"))
+
+        if filters.get("expiration_date_fact_from"):
+            and_expressions.append(WelderCertificationModel.expiration_date_fact > filters.get("expiration_date_fact_from"))
+
+        if filters.get("expiration_date_fact_before"):
+            and_expressions.append(WelderCertificationModel.expiration_date_fact < filters.get("expiration_date_fact_before"))
+
+        return (and_expressions, or_expressions)
+
 
 """
 ====================================================================================================
@@ -174,7 +244,7 @@ Welder certification repository
 """
 
 
-class WelderCertificationRepository(SQLAlchemyRepository[WelderCertificationShema, WelderCertificationModel]):
+class WelderCertificationRepository(SQLAlchemyRepository[WelderCertificationShema, type[WelderCertificationModel]]):
     __tablemodel__ = WelderCertificationModel
     __shema__ = WelderCertificationShema
 
@@ -183,6 +253,27 @@ class WelderCertificationRepository(SQLAlchemyRepository[WelderCertificationShem
             ident = UUID(ident)
 
         return self._get(ident)
+
+
+    def get_many(self, filters: WelderCertificationDataBaseRequest = {}) -> list[WelderCertificationShema] | None:
+        and_expressions, or_expressions = self._get_expressions(filters)
+
+        stmt = select(self.__tablemodel__).join(
+            WelderModel
+        ).filter(
+            and_(
+                or_(*or_expressions),
+                *and_expressions
+            )
+        ).order_by(desc(WelderCertificationModel.certification_date))
+
+        if filters.get("limit"):
+            stmt = stmt.limit(filters.get("limit"))
+
+        if filters.get("offset"):
+            stmt = stmt.offset(filters.get("offset"))
+
+        return [WelderCertificationShema.model_validate(welder[0], from_attributes=True) for welder in self._session.execute(stmt).all()]
 
 
     def add(self, **kwargs: t.Unpack[WelderCertificationData]):
@@ -196,6 +287,50 @@ class WelderCertificationRepository(SQLAlchemyRepository[WelderCertificationShem
     def delete(self, ident: str | int):
         self._delete(ident)
 
+    
+    def _get_expressions(self, filters: WelderCertificationDataBaseRequest) -> tuple[list[BinaryExpression], list[BinaryExpression]]:
+        and_expressions = []
+        or_expressions = []
+
+        if filters.get("names"):
+            or_expressions.append(WelderModel.name.ilike(any_(filters.get("names"))))
+
+        if filters.get("kleymos"):
+            or_expressions.append(WelderCertificationModel.kleymo.in_(filters.get("kleymos")))
+
+        if filters.get("idents"):
+            or_expressions.append(WelderCertificationModel.ident.in_(filters.get("idents")))
+
+        if filters.get("certification_numbers"):
+            or_expressions.append(WelderCertificationModel.certification_number.in_(filters.get("certification_numbers")))
+
+        if filters.get("methods"):
+            and_expressions.append(WelderCertificationModel.method.in_(filters.get("methods")))
+
+        if filters.get("gtds"):
+            and_expressions.append(WelderCertificationModel.gtd.in_(filters.get("gtds")))
+
+        if filters.get("certification_date_from"):
+            and_expressions.append(WelderCertificationModel.certification_date > filters.get("certification_date_from"))
+
+        if filters.get("certification_date_before"):
+            and_expressions.append(WelderCertificationModel.certification_date < filters.get("certification_date_before"))
+
+        if filters.get("expiration_date_from"):
+            and_expressions.append(WelderCertificationModel.expiration_date > filters.get("expiration_date_from"))
+
+        if filters.get("expiration_date_before"):
+            and_expressions.append(WelderCertificationModel.expiration_date < filters.get("expiration_date_before"))
+
+        if filters.get("expiration_date_fact_from"):
+            and_expressions.append(WelderCertificationModel.expiration_date_fact > filters.get("expiration_date_fact_from"))
+
+        if filters.get("expiration_date_fact_before"):
+            and_expressions.append(WelderCertificationModel.expiration_date_fact < filters.get("expiration_date_fact_before"))
+
+        
+        return (and_expressions, or_expressions)
+
 
 """
 ===================================================================================================
@@ -204,7 +339,7 @@ NDT repository
 """
 
 
-class NDTRepository(SQLAlchemyRepository[NDTShema, NDTModel]):
+class NDTRepository(SQLAlchemyRepository[NDTShema, type[NDTModel]]):
     __tablemodel__ = NDTModel
     __shema__ = NDTShema
 
@@ -214,6 +349,27 @@ class NDTRepository(SQLAlchemyRepository[NDTShema, NDTModel]):
             ident = UUID(ident)
 
         return self._get(ident)
+
+
+    def get_many(self, filters: NDTDataBaseRequest = {}) -> list[NDTShema] | None:
+        and_expressions, or_expressions = self._get_expressions(filters)
+
+        stmt = select(self.__tablemodel__).join(
+            WelderModel
+        ).filter(
+            and_(
+                or_(*or_expressions),
+                *and_expressions
+            )
+        ).order_by(desc(NDTModel.welding_date))
+
+        if filters.get("limit"):
+            stmt = stmt.limit(filters.get("limit"))
+
+        if filters.get("offset"):
+            stmt = stmt.offset(filters.get("offset"))
+
+        return [NDTShema.model_validate(welder[0], from_attributes=True) for welder in self._session.execute(stmt).all()]
 
     
     def add(self, **kwargs: t.Unpack[NDTData]):
@@ -226,6 +382,37 @@ class NDTRepository(SQLAlchemyRepository[NDTShema, NDTModel]):
 
     def delete(self, ident: str | int):
         self._delete(ident)
+
+    
+    def _get_expressions(self, filters: NDTDataBaseRequest) -> tuple[list[BinaryExpression], list[BinaryExpression]]:
+        and_expressions = []
+        or_expressions = []
+
+        if filters.get("names"):
+            or_expressions.append(WelderModel.name.ilike(any_(filters.get("names"))))
+
+        if filters.get("kleymos"):
+            or_expressions.append(NDTModel.kleymo.in_(filters.get("kleymos")))
+
+        if filters.get("idents"):
+            or_expressions.append(NDTModel.ident.in_(filters.get("idents")))
+
+        if filters.get("comps"):
+            and_expressions.append(NDTModel.company.in_(filters.get("comps")))
+
+        if filters.get("subcomps"):
+            and_expressions.append(NDTModel.subcompany.in_(filters.get("subcomps")))
+
+        if filters.get("projects"):
+            and_expressions.append(NDTModel.project.in_(filters.get("projects")))
+
+        if filters.get("welding_date_from"):
+            and_expressions.append(NDTModel.welding_date > filters.get("welding_date_from"))
+
+        if filters.get("welding_date_before"):
+            and_expressions.append(NDTModel.welding_date < filters.get("welding_date_before"))
+        
+        return (and_expressions, or_expressions)
 
 
 """

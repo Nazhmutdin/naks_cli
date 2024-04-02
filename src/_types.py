@@ -2,9 +2,7 @@ import typing as t
 from datetime import date, datetime
 from pathlib import Path
 
-from pydantic import BaseModel, Field
-
-from utils.funcs import click_date, click_date_required, click_float_optional, click_list
+from utils.funcs import click_date_optional, click_date_required, click_float_optional, click_list
 
 
 __all__: list[str] = [
@@ -34,45 +32,45 @@ Database Requests
 """
 
 
-class DataBaseRequest(BaseModel):
-    limit: t.Optional[int] = Field(default=None)
-    offset: t.Optional[int] = Field(default=None)
+class DataBaseRequest(t.TypedDict):
+    limit: int | None
+    offset: int | None
 
 
 class WelderCertificationDataBaseRequest(DataBaseRequest):
-    kleymos: t.Optional[list[str | int]] = Field(default=None)
-    ids: t.Optional[list[str]] = Field(default=None)
-    certification_numbers: list[str] = Field(default=None)
-    certification_date_from: t.Optional[date] = Field(default=None)
-    certification_date_before: t.Optional[date] = Field(default=None)
-    expiration_date_from: t.Optional[date] = Field(default=None)
-    expiration_date_before: t.Optional[date] = Field(default=None)
-    expiration_date_fact_from: t.Optional[date] = Field(default=None)
-    expiration_date_fact_before: t.Optional[date] = Field(default=None)
-    details_thikness_from: t.Optional[float] = Field(default=None)
-    details_thikness_before: t.Optional[float] = Field(default=None)
-    outer_diameter_from: t.Optional[float] = Field(default=None)
-    outer_diameter_before: t.Optional[float] = Field(default=None)
-    rod_diameter_from: t.Optional[float] = Field(default=None)
-    rod_diameter_before: t.Optional[float] = Field(default=None)
-    details_diameter_from: t.Optional[float] = Field(default=None)
-    details_diameter_before: t.Optional[float] = Field(default=None)
-    gtd: t.Optional[list[str]] = Field(default=None)
-    method: t.Optional[list[str]] = Field(default=None)
+    kleymos: t.Annotated[list[str | int] | None, click_list]
+    idents: t.Annotated[list[str] | None, click_list]
+    certification_numbers: t.Annotated[list[str] | None, click_list]
+    certification_date_from: t.Annotated[date | None, click_date_optional]
+    certification_date_before: t.Annotated[date | None, click_date_optional]
+    expiration_date_from: t.Annotated[date | None, click_date_optional]
+    expiration_date_before: t.Annotated[date | None, click_date_optional]
+    expiration_date_fact_from: t.Annotated[date | None, click_date_optional]
+    expiration_date_fact_before: t.Annotated[date | None, click_date_optional]
+    details_thikness_from: float | None
+    details_thikness_before: float | None
+    outer_diameter_from: float | None
+    outer_diameter_before: float | None
+    rod_diameter_from: float | None
+    rod_diameter_before: float | None
+    details_diameter_from: float | None
+    details_diameter_before: float | None
+    gtds: t.Annotated[list[str] | None, click_list]
+    methods: t.Annotated[list[str] | None, click_list]
 
 
 class WelderDataBaseRequest(WelderCertificationDataBaseRequest):
-    names: t.Optional[list[str]] = Field(default=None)
+    names: t.Annotated[list[str] | None, click_list]
 
 
 class NDTDataBaseRequest(DataBaseRequest):
-    names: t.Optional[list[str]] = Field(default=None)
-    kleymos: t.Optional[list[str | int]] = Field(default=None)
-    comps: t.Optional[list[str]] = Field(default=None)
-    subcomps: t.Optional[list[str]] = Field(default=None)
-    projects: t.Optional[list[str]] = Field(default=None)
-    welding_date_from: t.Optional[date] = Field(default=None)
-    welding_date_before: t.Optional[date] = Field(default=None)
+    names: t.Annotated[list[str] | None, click_list]
+    kleymos: t.Annotated[list[str | int] | None, click_list]
+    comps: t.Annotated[list[str] | None, click_list]
+    subcomps: t.Annotated[list[str] | None, click_list]
+    projects: t.Annotated[list[str] | None, click_list]
+    welding_date_from: t.Annotated[date | None, click_date_optional]
+    welding_date_before: t.Annotated[date | None, click_date_optional]
 
 
 """
@@ -85,7 +83,7 @@ Data dicts
 class WelderData(t.TypedDict):
     kleymo: str
     name: str
-    birthday: t.Annotated[date, click_date]
+    birthday: t.Annotated[date | None, click_date_optional]
     passport_number: str
     sicil: str
     nation: str
@@ -131,7 +129,7 @@ class NDTData(t.TypedDict):
     company: str
     subcompany: str
     project: str
-    welding_date: t.Annotated[date, click_date]
+    welding_date: t.Annotated[date, click_date_required]
     total_weld_1: t.Annotated[float | None, click_float_optional] 
     total_ndt_1: t.Annotated[float | None, click_float_optional] 
     total_accepted_1: t.Annotated[float | None, click_float_optional] 

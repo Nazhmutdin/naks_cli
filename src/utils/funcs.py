@@ -151,7 +151,7 @@ def click_date_required(date_string: str) -> date:
 
 
 @func_name_decorator("date or null")
-def click_date(date_string: str) -> date | None:
+def click_date_optional(date_string: str) -> date | None:
     _date = to_date(date_string, dayfirst=False)
 
     if not _date:
