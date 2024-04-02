@@ -1,14 +1,16 @@
 from uuid import UUID
+from json import dump
 import typing as t
 
-from click import group, Command, Option
+from click import Command, Option, Choice, group, echo
 from rich.console import Console
 from pydantic import ValidationError
 
-from _types import WelderData, NDTData, WelderCertificationData
 from utils.funcs import filtrate_extra_args, get_options, dicts_as_console_table
+from _types import WelderData, NDTData, WelderCertificationData
 from services.db_services import BaseDBService
 from services.db_services import *
+from settings import Settings
 from errors import (
     DBException, 
     AddCommandExeption, 
@@ -58,23 +60,48 @@ class BaseAddCommand(Command):
 
 
 class BaseGetCommand(Command):
-    def __init__(self, name: str, options: t.Iterable[Option], help: str | None = None) -> None:
+    def __init__(self, name: str, options: list[Option] = [], help: str | None = None) -> None:
+        default_options = [Option(["--ident"], type=str), Option(["--mode"], type=Choice(["show", "json", "excel"]), default="show")]
+
         super().__init__(
             name=name,
-            params=options,
+            params=default_options + options,
             help=help,
             callback=self.execute
         )
 
 
-    def execute(self, ident: str, mode: str) -> None:
+    def execute(self, ident: str, mode: t.Literal["show", "json", "excel"]) -> None:
         res = self._get_data(ident)
 
         if not res:
             raise GetCommandExeption(f"data with ident ({ident}) not found")
         
-        Console().print(dicts_as_console_table(res))
+        match mode:
+            case "show":
+                self._show_result(res)
+            case "json":
+                self._save_as_json(res)
+            case "excel":
+                raise NotImplementedError
+
     
+    def _show_result[Shema: BaseShema](self, shema: Shema) -> None:
+        Console().print(dicts_as_console_table(shema))
+
+        
+    def _save_as_json[Shema: BaseShema](self, shema: Shema) -> None:
+        file_name = self._gen_file_name(shema)
+        with open(f"{Settings.SAVES_DIR()}/{file_name}.json", "w", encoding="utf-8") as file:
+            dump(shema.model_dump(mode="json"), file, indent=4, ensure_ascii=False)
+            file.close()
+        
+        echo(f"file ({file_name}.json) created")
+
+    
+    def _gen_file_name[Shema: BaseShema](self, shema: Shema) -> str:
+        raise NotImplementedError
+
 
     def _get_data[Shema: BaseShema](self, ident: str) -> Shema | None:
         service = self._init_service()
@@ -155,11 +182,13 @@ class AddWelderCommand(BaseAddCommand):
 
 class GetWelderCommand(BaseGetCommand):
     def __init__(self) -> None:
-        options = [Option(["--ident"], type=str), Option(["--mode"], type=str)]
         super().__init__(
-            name="get",
-            options=options
+            name="get"
         )
+
+    
+    def _gen_file_name(self, shema: WelderShema) -> str:
+        return f"{shema.kleymo}_{shema.name}"
 
     
     def _init_service(self) -> WelderDBService:
@@ -224,11 +253,18 @@ class AddWelderCertificationCommand(BaseAddCommand):
 
 class GetWelderCertificationCommand(BaseGetCommand):
     def __init__(self) -> None:
-        options = [Option(["--ident"], type=str), Option(["--mode"], type=str)]
         super().__init__(
-            name="get",
-            options=options
+            name="get"
         )
+
+    
+    def _gen_file_name(self, shema: WelderCertificationShema) -> str:
+        certification_number = shema.certification_number
+
+        if shema.insert:
+            certification_number = f"{certification_number}~{shema.insert}"
+
+        return f"{shema.kleymo}_{certification_number}_{shema.certification_date}"
 
     
     def _init_service(self) -> WelderCertificationDBService:
@@ -294,11 +330,13 @@ class AddNDTCommand(BaseAddCommand):
 
 class GetNDTCommand(BaseGetCommand):
     def __init__(self) -> None:
-        options = [Option(["--ident"], type=str), Option(["--mode"], type=str)]
         super().__init__(
-            name="get",
-            options=options
+            name="get"
         )
+
+    
+    def _gen_file_name(self, shema: NDTShema) -> str:
+        return f"{shema.kleymo}_{shema.company}_{shema.subcompany}_{shema.project}_{shema.welding_date}"
 
     
     def _init_service(self) -> NDTDBService:

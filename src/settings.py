@@ -41,4 +41,9 @@ class Settings:
 
     @classmethod
     def BASE_DIR(cls) -> Path:
-        return Path.cwd()
+        return Path.cwd().parent
+    
+
+    @classmethod
+    def SAVES_DIR(cls) -> Path:
+        return f"{cls.BASE_DIR()}/static/saves"

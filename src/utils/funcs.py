@@ -106,7 +106,7 @@ def dicts_as_console_table[Shema: IShortDumpShema](*args: Shema) -> Table:
     headers: list[str] = ["index"] + list(args[0].short_model_dump().keys())
     shemas_type = type(args[0])
 
-    table = Table(title="found data", show_lines=True)
+    table = Table(title="Data", show_lines=True)
 
     for header in headers:
         table.add_column(header, header_style="cyan", justify="center")
