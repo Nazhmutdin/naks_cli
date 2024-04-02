@@ -3,12 +3,12 @@ from json import dump
 import typing as t
 
 from click import Command, Option, Choice, group, echo
-from rich.console import Console
+from click.core import Parameter
 from pydantic import ValidationError
+from rich.console import Console
 
-from utils.funcs import filtrate_extra_args, get_options, dicts_as_console_table
+from utils.funcs import filtrate_extra_args, get_options, dicts_as_console_table, save_as_json
 from _types import WelderData, NDTData, WelderCertificationData
-from services.db_services import BaseDBService
 from services.db_services import *
 from settings import Settings
 from errors import (
@@ -16,7 +16,9 @@ from errors import (
     AddCommandExeption, 
     UpdateCommandExeption, 
     DeleteCommandExeption, 
-    GetCommandExeption
+    GetCommandExeption,
+    GetManyCommandExeption,
+    NaksCommandExeption
 )
 from shemas import *
 
@@ -24,7 +26,9 @@ from shemas import *
 __all__: list[str] = [
     "welder_commands",
     "welder_certification_commands",
-    "ndt_commands"
+    "ndt_commands",
+    "naks_commands",
+    "attestation_commands"
 ]
 
 
@@ -56,10 +60,10 @@ class BaseAddCommand(Command):
             raise AddCommandExeption(f"adding failed\n\nDetail: {e.message}")
 
 
-    def _init_service(self) -> BaseDBService[BaseShema]: ...
+    def _init_service(self) -> BaseDBService: ...
 
 
-class BaseGetCommand(Command):
+class BaseGetCommand[Shema: BaseShema](Command):
     def __init__(self, name: str, options: list[Option] = [], help: str | None = None) -> None:
         default_options = [Option(["--ident"], type=str), Option(["--mode"], type=Choice(["show", "json", "excel"]), default="show")]
 
@@ -85,25 +89,26 @@ class BaseGetCommand(Command):
             case "excel":
                 raise NotImplementedError
 
-    
-    def _show_result[Shema: BaseShema](self, shema: Shema) -> None:
+
+    def _show_result(self, shema: Shema) -> None:
         Console().print(dicts_as_console_table(shema))
 
         
-    def _save_as_json[Shema: BaseShema](self, shema: Shema) -> None:
+    def _save_as_json(self, shema: Shema) -> None:
         file_name = self._gen_file_name(shema)
-        with open(f"{Settings.SAVES_DIR()}/{file_name}.json", "w", encoding="utf-8") as file:
-            dump(shema.model_dump(mode="json"), file, indent=4, ensure_ascii=False)
-            file.close()
+        data = shema.model_dump(mode="json")
+        path = f"{Settings.SAVES_DIR()}/{file_name}.json"
+
+        save_as_json(data, path)
         
         echo(f"file ({file_name}.json) created")
 
     
-    def _gen_file_name[Shema: BaseShema](self, shema: Shema) -> str:
+    def _gen_file_name(self, shema: Shema) -> str:
         raise NotImplementedError
 
 
-    def _get_data[Shema: BaseShema](self, ident: str) -> Shema | None:
+    def _get_data(self, ident: str) -> Shema | None:
         service = self._init_service()
 
         try:
@@ -137,7 +142,7 @@ class BaseUpdateCommand(Command):
             raise UpdateCommandExeption(f"update failed\n\nDetail: {e.message}")
 
 
-    def _init_service(self) -> BaseDBService[BaseShema]: ...
+    def _init_service(self) -> BaseDBService: ...
 
 
 class BaseDeleteCommand(Command):
@@ -221,7 +226,7 @@ class DeleteWelderCommand(BaseDeleteCommand):
         return WelderDBService()
 
 
-@group("welder")
+@group("welder", help="CRUD actions with welder data")
 def welder_commands():
     ...
 
@@ -297,7 +302,7 @@ class DeleteWelderCertificationCommand(BaseDeleteCommand):
         return WelderCertificationDBService()
 
 
-@group("welder-certification")
+@group("welder-certification", help="CRUD actions with welder's certification data")
 def welder_certification_commands():
     ...
 
@@ -369,7 +374,7 @@ class DeleteNDTCommand(BaseDeleteCommand):
         return NDTDBService()
 
 
-@group("ndt")
+@group("ndt", help="CRUD actions with ndt data")
 def ndt_commands():
     ...
 
@@ -382,6 +387,69 @@ ndt_commands.add_command(DeleteNDTCommand())
 
 """
 =========================================================
-ndt commands
+naks commands
 =========================================================
 """
+
+
+class BaseParseNaksCommand(Command): 
+    def __init__(self, name: str) -> None:
+        super().__init__(
+            name=name,
+            callback=self.execute
+        )
+    
+    
+    def execute(self) -> None:
+        raise NaksCommandExeption("not implemented")
+
+
+class ParseNaksPersonalCommand(BaseParseNaksCommand): 
+    def __init__(self) -> None:
+        super().__init__(
+            name="parse-personal"
+        )
+
+
+class ParseACSTPersonalCommand(BaseParseNaksCommand): 
+    def __init__(self) -> None:
+        super().__init__(
+            name="parse-acst"
+        )
+
+
+class ParseACSOPersonalCommand(BaseParseNaksCommand): 
+    def __init__(self) -> None:
+        super().__init__(
+            name="parse-acso"
+        )
+
+
+class ParseACSMPersonalCommand(BaseParseNaksCommand): 
+    def __init__(self) -> None:
+        super().__init__(
+            name="parse-acsm"
+        )
+
+
+@group("naks", help="extract welders | engineers | acst | acso | acsm data from naks site")
+def naks_commands():
+    ...
+
+
+naks_commands.add_command(ParseNaksPersonalCommand())
+naks_commands.add_command(ParseACSTPersonalCommand())
+naks_commands.add_command(ParseACSOPersonalCommand())
+naks_commands.add_command(ParseACSMPersonalCommand())
+
+
+"""
+=========================================================
+attestation commands
+=========================================================
+"""
+
+
+@group("attestation", help="creates attestation docs for welders | engineers | acst | acso | acsm")
+def attestation_commands():
+    ...

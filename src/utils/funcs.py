@@ -1,16 +1,16 @@
-from dateutil.parser import parser
 from datetime import datetime, date
+from dateutil.parser import parser
 from ast import literal_eval
+from json import dump
 import typing as t
 
-from click import ClickException, option, Option
+from click import ClickException, Option
 from rich.table import Table
 
 from errors import InvalidDateException
 
 
 __all__ = [
-    "click_extra_args_decorator",
     "filtrate_extra_args",
     "str_to_datetime",
     "click_date_required",
@@ -19,10 +19,17 @@ __all__ = [
     "click_float_optional"
 ]
 
+type JsonRenderable = list | dict
+
 
 class IShortDumpShema(t.Protocol):
     def short_model_dump(self) -> dict[str, t.Any]: ...
 
+
+def save_as_json(data: JsonRenderable, path: str, indent: int = 4, ensure_ascii: bool = False) -> None:
+    with open(path, "w", encoding="utf-8") as file:
+        dump(data, file, indent=indent, ensure_ascii=ensure_ascii)
+        file.close()
 
 
 def get_options[Data: t.TypedDict](data_type: type[Data]) -> t.Iterator[Option]:
@@ -33,31 +40,6 @@ def get_options[Data: t.TypedDict](data_type: type[Data]) -> t.Iterator[Option]:
 
         else:
             yield Option([f"--{key}"], type=value)
-
-
-def click_extra_args_decorator[Data: t.TypedDict](cls: type[Data]):
-    def inner(func: t.Callable[..., t.Any]):
-        for key, value in cls.__annotations__.items():
-            if isinstance(value, t._AnnotatedAlias):
-                state = value.__getstate__()
-                option(f"--{key}", type=state["__metadata__"][0])(func)
-
-            else:
-                option(f"--{key}", type=value)(func)
-        
-        return func
-        
-    return inner
-
-
-def click_extra_args[Data: t.TypedDict](cls: type[Data]) -> t.Iterator[Option]:
-    for key, value in cls.__annotations__.items():
-        if isinstance(value, t._AnnotatedAlias):
-            state = value.__getstate__()
-            yield Option(f"--{key}", type=state["__metadata__"][0])
-
-        else:
-            yield Option(f"--{key}", type=value)
 
 
 def filtrate_extra_args(data: dict[str, t.Any]) -> dict[str, t.Any]:

@@ -4,7 +4,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
-load_dotenv("../.env")
+load_dotenv(f"{Path.cwd().parent}/.env")
 
 
 class Settings:
@@ -42,7 +42,7 @@ class Settings:
     @classmethod
     def BASE_DIR(cls) -> Path:
         return Path.cwd().parent
-    
+
 
     @classmethod
     def SAVES_DIR(cls) -> Path:

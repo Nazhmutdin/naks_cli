@@ -56,13 +56,19 @@ class GetCommandExeption(BaseCommandExeption):
         super().__init__(message)
 
 
-class DeleteCommandExeption(BaseCommandExeption):
+class GetManyCommandExeption(BaseCommandExeption):
     def __init__(self, message: str) -> None:
         self.message = message
         super().__init__(message)
 
 
 class DeleteCommandExeption(BaseCommandExeption):
+    def __init__(self, message: str) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+class NaksCommandExeption(BaseCommandExeption):
     def __init__(self, message: str) -> None:
         self.message = message
         super().__init__(message)
