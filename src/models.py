@@ -53,7 +53,7 @@ class WelderCertificationModel(Base):
     method: Mapped[str] = Column(String(), nullable=True)
     details_type: Mapped[list[str] | None] = Column(ARRAY(String), nullable=True)
     joint_type: Mapped[list[str] | None] = Column(ARRAY(String), nullable=True)
-    groups_materials_for_welding: Mapped[list[str] | None] = Column(ARRAY(String), nullable=True)
+    welding_materials_groups: Mapped[list[str] | None] = Column(ARRAY(String), nullable=True)
     welding_materials: Mapped[str | None] = Column(String(), nullable=True)
     details_thikness_from: Mapped[float | None] = Column(Float(), nullable=True)
     details_thikness_before: Mapped[float | None] = Column(Float(), nullable=True)

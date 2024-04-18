@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date
 from re import fullmatch
 import typing as t
 from uuid import UUID, uuid4
@@ -24,8 +24,7 @@ __all__: list[str] = [
     "CreateNDTShema",
     "UpdateNDTShema",
     "EngineerShema",
-    "EngineerCertificationShema",
-    "UserShema",
+    "EngineerCertificationShema"
 ]
 
 
@@ -184,7 +183,7 @@ class BaseWelderCertificationShema(BaseShema):
     method: str | None = Field(default=None)
     details_type: list[str] | None = Field(default=None)
     joint_type: list[str] | None = Field(default=None)
-    groups_materials_for_welding: list[str] | None = Field(default=None)
+    welding_materials_groups: list[str] | None = Field(default=None)
     welding_materials: str | None = Field(default=None)
     details_thikness_from: float | None = Field(default=None)
     details_thikness_before: float | None = Field(default=None)
@@ -208,7 +207,7 @@ class BaseWelderCertificationShema(BaseShema):
         res = {}
 
         for key, value in self.model_dump().items():
-            if key in ["kleymo", "certification_number", "certification_date", "expiration_date", "expiration_date_fact", "insert", "method"]:
+            if key in ["kleymo", "ident", "certification_number", "certification_date", "expiration_date_fact", "insert", "method"]:
                 res[key] = value
 
         return res
@@ -390,22 +389,3 @@ Engineer certification shema
 
 
 class EngineerCertificationShema(BaseShema): ...
-
-
-"""
-====================================================================================================
-User shema 
-====================================================================================================
-"""
-
-
-class UserShema(BaseShema):
-    name: str = Field()
-    login: str = Field()
-    hashed_password: str = Field()
-    email: str | None = Field(default=None)
-    sign_date: datetime = Field(default_factory=datetime.now)
-    update_date: datetime = Field(default_factory=datetime.now)
-    login_date: datetime = Field(default_factory=datetime.now)
-    is_active: bool = Field(default=True)
-    is_superuser: bool = Field(default=False)

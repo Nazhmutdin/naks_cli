@@ -9,29 +9,31 @@ Personal types
 """
 
 
-class PersonalMainPageResult(BaseModel):
-    kleymo: str = Field()
-    name: str | None = Field(default=None)
-    company: str | None = Field(default=None)
-    job_title: str | None = Field(default=None)
-    certification_number: str = Field()
+class PersonalMainPageData(BaseModel):
+    kleymo: str
+    name: str
+    company: str
+    job_title: str
+    certification_number: str
     insert: str | None = Field(default=None)
-    certification_date: str = Field()
-    expiration_date: str = Field()
-    expiration_date_fact: str = Field()
+    certification_date: str
+    expiration_date: str
+    expiration_date_fact: str
     method: str | None = Field(default=None)
+    additional_page_id: str
 
 
-class PersonalAdditionalPageResult(BaseModel):
-    kleymo: str = Field()
+class PersonalAdditionalPageData(BaseModel):
     certification_type: str | None = Field(default=None)
     gtd: list[str] | None = Field(default=None)
     details_type: list[str] | None = Field(default=None)
     joint_type: list[str] | None = Field(default=None)
-    groups_materials_for_welding: list[str] | None = Field(default=None)
+    welding_materials_groups: list[str] | None = Field(default=None)
     welding_materials: str | None = Field(default=None)
-    details_thikness_from: float | None = Field(default=None)
-    details_thikness_before: float | None = Field(default=None)
+    detail_thikness_from: float | None = Field(default=None)
+    detail_thikness_before: float | None = Field(default=None)
+    detail_diameter_from: float | None = Field(default=None)
+    detail_diameter_before: float | None = Field(default=None)
     outer_diameter_from: float | None = Field(default=None)
     outer_diameter_before: float | None = Field(default=None)
     welding_position: str | None = Field(default=None)
@@ -39,23 +41,21 @@ class PersonalAdditionalPageResult(BaseModel):
     rod_diameter_from: float | None = Field(default=None)
     rod_diameter_before: float | None = Field(default=None)
     rod_axis_position: str | None = Field(default=None)
-    weld_type: str | None = Field(default=None)
+    welding_type: str | None = Field(default=None)
     joint_layer: str | None = Field(default=None)
     sdr: str | None = Field(default=None)
     automation_level: str | None = Field(default=None)
-    details_diameter_from: float | None = Field(default=None)
-    details_diameter_before: float | None = Field(default=None)
     welding_equipment: str | None = Field(default=None)
 
 
-class NaksPersonResult(BaseModel):
-    kleymo: str = Field()
-    name: str | None = Field(default=None)
+class NaksPersonalResult(BaseModel):
+    kleymo: str
+    name: str
+    certification_number: str
+    certification_date: str
+    expiration_date: str
+    expiration_date_fact: str
     job_title: str | None = Field(default=None)
-    certification_number: str = Field()
-    certification_date: str = Field()
-    expiration_date: str = Field()
-    expiration_date_fact: str = Field()
     insert: str | None = Field(default=None)
     certification_type: str | None = Field(default=None)
     company: str | None = Field(default=None)
@@ -63,10 +63,10 @@ class NaksPersonResult(BaseModel):
     method: str | None = Field(default=None)
     details_type: list[str] | None = Field(default=None)
     joint_type: list[str] | None = Field(default=None)
-    groups_materials_for_welding: list[str] | None = Field(default=None)
+    welding_materials_groups: list[str] | None = Field(default=None)
     welding_materials: str | None = Field(default=None)
-    details_thikness_from: float | None = Field(default=None)
-    details_thikness_before: float | None = Field(default=None)
+    detail_thikness_from: float | None = Field(default=None)
+    detail_thikness_before: float | None = Field(default=None)
     outer_diameter_from: float | None = Field(default=None)
     outer_diameter_before: float | None = Field(default=None)
     welding_position: str | None = Field(default=None)
@@ -78,6 +78,6 @@ class NaksPersonResult(BaseModel):
     joint_layer: str | None = Field(default=None)
     sdr: str | None = Field(default=None)
     automation_level: str | None = Field(default=None)
-    details_diameter_from: float | None = Field(default=None)
-    details_diameter_before: float | None = Field(default=None)
+    detail_diameter_from: float | None = Field(default=None)
+    detail_diameter_before: float | None = Field(default=None)
     welding_equipment: str | None = Field(default=None)

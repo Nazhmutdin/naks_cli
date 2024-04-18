@@ -16,7 +16,9 @@ __all__ = [
     "click_date_required",
     "to_date",
     "click_date",
-    "click_float_optional"
+    "click_list_optional",
+    "click_float_optional",
+    "click_int_optional"
 ]
 
 type JsonRenderable = list | dict
@@ -32,14 +34,17 @@ def save_as_json(data: JsonRenderable, path: str, indent: int = 4, ensure_ascii:
         file.close()
 
 
-def get_options[Data: t.TypedDict](data_type: type[Data]) -> t.Iterator[Option]:
+def get_options[Data](data_type: type[Data]) -> list[Option]:
+    options = []
     for key, value in data_type.__annotations__.items():
         if isinstance(value, t._AnnotatedAlias):
             state = value.__getstate__()
-            yield Option([f"--{key}"], type=state["__metadata__"][0])
+            options.append(Option([f"--{key}"], type=state["__metadata__"][0])) 
 
         else:
-            yield Option([f"--{key}"], type=value)
+            options.append(Option([f"--{key}"], type=value)) 
+
+    return options
 
 
 def filtrate_extra_args(data: dict[str, t.Any]) -> dict[str, t.Any]:
@@ -83,8 +88,7 @@ def to_date(date_data: str | date | t.Iterable[int] | None, dayfirst: bool = Fal
     raise InvalidDateException(f"Invalid date data '{date_data}'")
 
 
-def dicts_as_console_table[Shema: IShortDumpShema](*args: Shema) -> Table: 
-    dict_for_print: dict[str, list] = {}
+def dicts_as_console_table[Shema: IShortDumpShema](*args: Shema) -> Table:
     headers: list[str] = ["index"] + list(args[0].short_model_dump().keys())
     shemas_type = type(args[0])
 
@@ -143,7 +147,7 @@ def click_date_optional(date_string: str) -> date | None:
 
 
 @func_name_decorator("list or null")
-def click_list(string: str | None) -> list[t.Any] | None:
+def click_list_optional(string: str | None) -> list[t.Any] | None:
 
     if not string:
         return None
@@ -164,5 +168,20 @@ def click_float_optional(value: str | float | None) -> float | str | None:
     else:
         try:
             return float(value)
+        except:
+            raise ClickException("invalid float string")
+
+
+@func_name_decorator("int or null")
+def click_int_optional(value: str | int | None) -> int | str | None:
+    if value == None or isinstance(value, int):
+        return value
+    
+    elif value == "None":
+        return value
+    
+    else:
+        try:
+            return int(value)
         except:
             raise ClickException("invalid float string")

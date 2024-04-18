@@ -41,7 +41,7 @@ class Settings:
 
     @classmethod
     def BASE_DIR(cls) -> Path:
-        return Path.cwd().parent
+        return Path.cwd()
 
 
     @classmethod

@@ -172,7 +172,7 @@ class TestWelderCertificationRepository:
     @pytest.mark.parametrize(
             "ident, data",
             [
-                ("cccba2a0ea9047c8837691a740513f6d", {"groups_materials_for_welding": ["dsdsds"], "certification_date": "15.12.1995"}),
+                ("cccba2a0ea9047c8837691a740513f6d", {"welding_materials_groups": ["dsdsds"], "certification_date": "15.12.1995"}),
                 ("422786ffabd54d74867a8f34950ee0b5", {"job_title": "ппмфва", "kleymo": "11F9", "expiration_date": "1990-05-15"}),
                 ("71c20a79706d4fb28f7b84e94881565c", {"insert": "В1", "company": "asasas", "expiration_date_fact": "2025-10-20"}),
                 ("435a9de3ade64c38b316dd08c3c7bc7c", {"connection_type": "gggg", "outer_diameter_from": 11.65, "details_type": ["2025-10-20", "ffff"]}),

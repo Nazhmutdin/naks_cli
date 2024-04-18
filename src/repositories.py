@@ -21,7 +21,7 @@ from re import fullmatch
 from uuid import UUID
 
 from _types import DataBaseRequest
-from shemas import BaseShema, WelderShema, WelderCertificationShema, NDTShema, UserShema
+from shemas import BaseShema, WelderShema, WelderCertificationShema, NDTShema
 from models import WelderCertificationModel, WelderModel, NDTModel, UserModel, Base
 from errors import DBException
 from _types import *
@@ -31,8 +31,7 @@ __all__: list[str] = [
     "SQLAlchemyRepository",
     "WelderRepository",
     "WelderCertificationRepository",
-    "NDTRepository",
-    "UserRepository"
+    "NDTRepository"
 ]
 
 
@@ -413,34 +412,3 @@ class NDTRepository(SQLAlchemyRepository[NDTShema, type[NDTModel]]):
             and_expressions.append(NDTModel.welding_date < filters.get("welding_date_before"))
         
         return (and_expressions, or_expressions)
-
-
-"""
-====================================================================================================
-User repository
-====================================================================================================
-"""
-
-
-class UserRepository(SQLAlchemyRepository[UserShema, UserModel]):
-    __tablemodel__ = UserModel
-    __shema__ = UserShema
-
-
-    def get(self, ident: str | UUID) -> UserShema | None:
-        if isinstance(ident, str):
-            ident = UUID(ident)
-            
-        self._get(ident)
-
-
-    def update(self, id: str | int, **kwargs: t.Unpack[UserData]):
-        self._update(id, **kwargs)
-
-    
-    def add(self, **kwargs: t.Unpack[UserData]):
-        self._add(kwargs)
-
-
-    def delete(self, id: str | int):
-        self._delete(id)

@@ -1,14 +1,20 @@
 from uuid import UUID
-from json import dump
 import typing as t
 
 from click import Command, Option, Choice, group, echo
-from click.core import Parameter
 from pydantic import ValidationError
 from rich.console import Console
 
-from utils.funcs import filtrate_extra_args, get_options, dicts_as_console_table, save_as_json
-from _types import WelderData, NDTData, WelderCertificationData
+from utils.funcs import filtrate_extra_args, get_options, dicts_as_console_table, save_as_json, JsonRenderable
+from _types import (
+    WelderData, 
+    NDTData, 
+    WelderCertificationData, 
+    DataBaseRequest,
+    WelderDataBaseRequest, 
+    WelderCertificationDataBaseRequest, 
+    NDTDataBaseRequest
+)
 from services.db_services import *
 from settings import Settings
 from errors import (
@@ -85,23 +91,23 @@ class BaseGetCommand[Shema: BaseShema](Command):
             case "show":
                 self._show_result(res)
             case "json":
-                self._save_as_json(res)
+                file_name = self._gen_file_name(res)
+                data = res.model_dump(mode="json")
+                self._save_as_json(data, file_name)
             case "excel":
                 raise NotImplementedError
 
 
-    def _show_result(self, shema: Shema) -> None:
-        Console().print(dicts_as_console_table(shema))
+    def _show_result(self, *shemas: Shema) -> None:
+        Console().print(dicts_as_console_table(*shemas))
 
         
-    def _save_as_json(self, shema: Shema) -> None:
-        file_name = self._gen_file_name(shema)
-        data = shema.model_dump(mode="json")
+    def _save_as_json(self, data: JsonRenderable, file_name: str) -> None:
         path = f"{Settings.SAVES_DIR()}/{file_name}.json"
 
         save_as_json(data, path)
         
-        echo(f"file ({file_name}.json) created")
+        echo(f"file ({file_name}.json) created | {len(data)} elements found")
 
     
     def _gen_file_name(self, shema: Shema) -> str:
@@ -119,7 +125,40 @@ class BaseGetCommand[Shema: BaseShema](Command):
             raise GetCommandExeption(f"something gone wrong\n\nDetail: {e.args[0]}")
 
 
-    def _init_service(self) -> BaseDBService[BaseShema]: ...
+    def _init_service(self) -> BaseDBService[BaseShema, DataBaseRequest]: ...
+
+
+class BaseGetManyCommand[Shema: BaseShema](BaseGetCommand):
+    def __init__(self, name: str, options: list[Option] = [], help: str | None = None) -> None:
+        options = options + [Option(["--file-name"], type=str, required=True)]
+        super().__init__(name, options, help)
+
+    
+    def execute[Request: DataBaseRequest](self, mode: t.Literal["show", "json", "excel"], file_name: str, **filters: t.Unpack[Request]):
+        res = self._get_data(filters)
+
+        if not res:
+            raise GetCommandExeption(f"data not found")
+        
+        match mode:
+            case "show":
+                self._show_result(*res)
+            case "json":
+                data = [el.model_dump(mode="json") for el in res]
+                self._save_as_json(data, file_name)
+            case "excel":
+                raise NotImplementedError
+
+    
+    def _get_data[Request: DataBaseRequest](self, filters: Request) -> list[Shema] | None:
+        service = self._init_service()
+
+        try:
+            return service.get_many(**filters)
+        except DBException as e:
+            raise GetCommandExeption(f"failed getting data\n\nDetail: {e.message}")
+        except Exception as e:
+            raise GetCommandExeption(f"something gone wrong\n\nDetail: {e.args[0]}")
 
 
 class BaseUpdateCommand(Command):
@@ -163,7 +202,7 @@ class BaseDeleteCommand(Command):
             raise DeleteCommandExeption(e.message)
 
 
-    def _init_service(self) -> BaseDBService[BaseShema]: ...
+    def _init_service(self) -> BaseDBService: ...
 
 
 """
@@ -174,7 +213,7 @@ welder commands
 
 class AddWelderCommand(BaseAddCommand):
     def __init__(self) -> None:
-        options = [Option(["--ident"], type=str)] + list(get_options(WelderData))
+        options = [Option(["--ident"], type=str)] + get_options(WelderData)
         super().__init__(
             name="add",
             options=options
@@ -200,9 +239,21 @@ class GetWelderCommand(BaseGetCommand):
         return WelderDBService()
 
 
+class GetManyWelderCommand(BaseGetManyCommand):
+    def __init__(self) -> None:
+        super().__init__(
+            name="get-many",
+            options=get_options(WelderDataBaseRequest)
+        )
+
+    
+    def _init_service(self) -> WelderDBService:
+        return WelderDBService()
+
+
 class UpdateWelderCommand(BaseUpdateCommand):
     def __init__(self) -> None:
-        options = [Option(["--ident"], type=str)] + list(get_options(WelderData))
+        options = [Option(["--ident"], type=str)] + get_options(WelderData)
         super().__init__(
             name="update",
             options=options
@@ -232,6 +283,7 @@ def welder_commands():
 
 welder_commands.add_command(AddWelderCommand())
 welder_commands.add_command(GetWelderCommand())
+welder_commands.add_command(GetManyWelderCommand())
 welder_commands.add_command(UpdateWelderCommand())
 welder_commands.add_command(DeleteWelderCommand())
 
@@ -245,7 +297,7 @@ welder certification commands
 
 class AddWelderCertificationCommand(BaseAddCommand):
     def __init__(self) -> None:
-        options = [Option(["--ident"], type=str)] + list(get_options(WelderCertificationData))
+        options = [Option(["--ident"], type=str)] + get_options(WelderCertificationData)
         super().__init__(
             name="add",
             options=options
@@ -276,9 +328,21 @@ class GetWelderCertificationCommand(BaseGetCommand):
         return WelderCertificationDBService()
 
 
+class GetManyWelderCertificationCommand(BaseGetManyCommand):
+    def __init__(self) -> None:
+        super().__init__(
+            name="get-many",
+            options=get_options(WelderCertificationDataBaseRequest)
+        )
+
+    
+    def _init_service(self) -> WelderCertificationDBService:
+        return WelderCertificationDBService()
+
+
 class UpdateWelderCertificationCommand(BaseUpdateCommand):
     def __init__(self) -> None:
-        options = [Option(["--ident"], type=str)] + list(get_options(WelderCertificationData))
+        options = [Option(["--ident"], type=str)] + get_options(WelderCertificationData)
         super().__init__(
             name="update",
             options=options
@@ -309,6 +373,7 @@ def welder_certification_commands():
 
 welder_certification_commands.add_command(AddWelderCertificationCommand())
 welder_certification_commands.add_command(GetWelderCertificationCommand())
+welder_certification_commands.add_command(GetManyWelderCertificationCommand())
 welder_certification_commands.add_command(UpdateWelderCertificationCommand())
 welder_certification_commands.add_command(DeleteWelderCertificationCommand())
 
@@ -322,7 +387,7 @@ ndt commands
 
 class AddNDTCommand(BaseAddCommand):
     def __init__(self) -> None:
-        options = [Option(["--ident"], type=str)] + list(get_options(NDTData))
+        options = [Option(["--ident"], type=str)] + get_options(NDTData)
         super().__init__(
             name="add",
             options=options
@@ -348,9 +413,21 @@ class GetNDTCommand(BaseGetCommand):
         return NDTDBService()
 
 
+class GetManyNDTCommand(BaseGetManyCommand):
+    def __init__(self) -> None:
+        super().__init__(
+            name="get-many",
+            options=get_options(NDTDataBaseRequest)
+        )
+
+    
+    def _init_service(self) -> NDTDBService:
+        return NDTDBService()
+
+
 class UpdateNDTCommand(BaseUpdateCommand):
     def __init__(self) -> None:
-        options = [Option(["--ident"], type=str)] + list(get_options(NDTData))
+        options = [Option(["--ident"], type=str)] + get_options(NDTData)
         super().__init__(
             name="update",
             options=options
@@ -381,6 +458,7 @@ def ndt_commands():
 
 ndt_commands.add_command(AddNDTCommand())
 ndt_commands.add_command(GetNDTCommand())
+ndt_commands.add_command(GetManyNDTCommand())
 ndt_commands.add_command(UpdateNDTCommand())
 ndt_commands.add_command(DeleteNDTCommand())
 

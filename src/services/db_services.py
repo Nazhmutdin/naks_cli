@@ -1,8 +1,15 @@
 from uuid import UUID
-from abc import ABC, abstractmethod
 import typing as t
 
-from _types import WelderData, WelderCertificationData, NDTData
+from _types import (
+    WelderData, 
+    WelderCertificationData, 
+    NDTData, 
+    DataBaseRequest,
+    WelderDataBaseRequest, 
+    WelderCertificationDataBaseRequest, 
+    NDTDataBaseRequest
+)
 from repositories import SQLAlchemyRepository
 from utils.UoWs import UnitOfWork
 from repositories import *
@@ -17,19 +24,11 @@ __all__: list[str] = [
 ]
 
 
-class BaseDBService[Shema: BaseShema](ABC):
+class BaseDBService[Shema: BaseShema, Request: DataBaseRequest]:
     def __init__(self, repository_type: type[SQLAlchemyRepository]) -> None:
         self.uow = UnitOfWork(repository_type=repository_type)
         self.create_shema: type[BaseShema] = NotImplemented
         self.update_shema: type[BaseShema] = NotImplemented
-
-
-    @abstractmethod
-    def add[T: t.TypedDict](self, **data: t.Unpack[T]) -> None: ...
-
-    
-    @abstractmethod
-    def update[T: t.TypedDict](self, ident: str | UUID, **data: t.Unpack[T]) -> None: ...
 
 
     def get(self, ident: str | UUID) -> Shema | None:
@@ -37,13 +36,18 @@ class BaseDBService[Shema: BaseShema](ABC):
             return uow.repository.get(ident)
 
 
-    def _add(self, data: dict) -> None:
+    def get_many(self, **filters: t.Unpack[Request]) -> list[Shema] | None:
+        with self.uow as uow:
+            return uow.repository.get_many(filters)
+
+
+    def add(self, data: dict) -> None:
         with self.uow as uow:
             uow.repository.add(**data)
             uow.commit()
 
 
-    def _update(self, ident: str | UUID, data: dict) -> None:
+    def update(self, ident: str | UUID, data: dict) -> None:
         with self.uow as uow:
             uow.repository.update(ident, **data)
             uow.commit()
@@ -60,7 +64,7 @@ class BaseDBService[Shema: BaseShema](ABC):
             return uow.repository.count()
 
 
-class WelderDBService(BaseDBService[WelderShema]):
+class WelderDBService(BaseDBService[WelderShema, WelderDataBaseRequest]):
     def __init__(self) -> None:
         self.uow = UnitOfWork(WelderRepository)
         self.create_shema = CreateWelderShema
@@ -69,15 +73,19 @@ class WelderDBService(BaseDBService[WelderShema]):
     
     def add(self, **data: t.Unpack[WelderData]) -> None:
         validated_data = self.create_shema.model_validate(data).model_dump()
-        self._add(validated_data)
+        super().add(validated_data)
     
 
     def update(self, ident: str | UUID, **data: t.Unpack[WelderData]) -> None:
         validated_data = self.update_shema.model_validate(data).model_dump(exclude_unset=True)
-        self._update(ident, validated_data)
+        super().update(ident, validated_data)
+
+    
+    def get_many(self, **filters: t.Unpack[WelderDataBaseRequest]) -> list[WelderShema] | None:
+        return super().get_many(**filters)
 
 
-class WelderCertificationDBService(BaseDBService[WelderCertificationShema]):
+class WelderCertificationDBService(BaseDBService[WelderCertificationShema, WelderCertificationDataBaseRequest]):
     def __init__(self) -> None:
         self.uow = UnitOfWork(WelderCertificationRepository)
         self.create_shema = CreateWelderCertificationShema
@@ -86,15 +94,19 @@ class WelderCertificationDBService(BaseDBService[WelderCertificationShema]):
     
     def add(self, **data: t.Unpack[WelderCertificationData]) -> None:
         validated_data = self.create_shema.model_validate(data).model_dump()
-        self._add(validated_data)
+        super().add(validated_data)
     
 
     def update(self, ident: str | UUID, **data: t.Unpack[WelderCertificationData]) -> None:
         validated_data = self.update_shema.model_validate(data).model_dump(exclude_unset=True)
-        self._update(ident, validated_data)
+        super().update(ident, validated_data)
 
 
-class NDTDBService(BaseDBService[NDTShema]):
+    def get_many(self, **filters: t.Unpack[WelderCertificationDataBaseRequest]) -> list[WelderCertificationShema] | None:
+        return super().get_many(**filters)
+
+
+class NDTDBService(BaseDBService[NDTShema, NDTDataBaseRequest]):
     def __init__(self) -> None:
         self.uow = UnitOfWork(NDTRepository)
         self.create_shema = CreateNDTShema
@@ -103,9 +115,13 @@ class NDTDBService(BaseDBService[NDTShema]):
     
     def add(self, **data: t.Unpack[NDTData]) -> None:
         validated_data = self.create_shema.model_validate(data).model_dump()
-        self._add(validated_data)
+        super().add(validated_data)
     
 
     def update(self, ident: str | UUID, **data: t.Unpack[NDTData]) -> None:
         validated_data = self.update_shema.model_validate(data).model_dump(exclude_unset=True)
-        self._update(ident, validated_data)
+        super().update(ident, validated_data)
+
+    
+    def get_many(self, **filters: t.Unpack[NDTDataBaseRequest]) -> list[NDTShema] | None:
+        return super().get_many(**filters)
