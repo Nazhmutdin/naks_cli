@@ -4,7 +4,7 @@ import uuid
 from sqlalchemy.orm import Mapped, relationship
 from sqlalchemy import String, Column, Date, ForeignKey, Float, ARRAY, Boolean, DateTime, SMALLINT, UUID, Enum
 
-from db_engine import Base
+from db.db_engine import Base
 
 
 class UserModel(Base):

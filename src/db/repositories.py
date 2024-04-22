@@ -1,6 +1,9 @@
 import typing as t
 from sqlalchemy import (
     Select, 
+    Insert,
+    Update,
+    Delete,
     BinaryExpression, 
     Column, 
     select, 
@@ -15,118 +18,121 @@ from sqlalchemy import (
     func
 )
 from sqlalchemy.exc import IntegrityError
-from abc import ABC, abstractmethod
-from sqlalchemy.orm import Session
+from abc import ABC
+from sqlalchemy.orm import Session, InstrumentedAttribute
 from re import fullmatch
 from uuid import UUID
 
-from _types import DataBaseRequest
 from shemas import BaseShema, WelderShema, WelderCertificationShema, NDTShema
-from models import WelderCertificationModel, WelderModel, NDTModel, UserModel, Base
+from db.models import WelderCertificationModel, WelderModel, NDTModel, Base
 from errors import DBException
 from _types import *
 
 
 __all__: list[str] = [
-    "SQLAlchemyRepository",
+    "BaseRepository",
     "WelderRepository",
     "WelderCertificationRepository",
     "NDTRepository"
 ]
 
 
-class SQLAlchemyRepository[Shema: BaseShema, Model: type[Base]](ABC):
-    __tablemodel__: Model
-    __shema__: Shema
+"""
+====================================================================================================
+Base repository
+====================================================================================================
+"""
+
+
+class BaseRepository[Shema: BaseShema](ABC):
+    __model__: type[Base]
+    __shema__: type[Shema]
 
 
     def __init__(self, session: Session) -> None:
         self._session = session
 
 
-    @abstractmethod
-    def get(ident: str | UUID) -> Shema | None: ...
+    def get(self, ident: UUID | str) -> Shema | None:
+        try:
+            stmt = self._dump_get_stmt(ident)
+            response = self._session.execute(stmt)
+            result = response.one_or_none()
+
+            if not result:
+                return None
+
+            return self.__shema__.model_validate(result[0], from_attributes=True)
+
+        except IntegrityError as e:
+            raise DBException(e.args[0])
+        
+
+    def get_many(self, filters: dict) -> list[Shema]: ...
 
 
-    @abstractmethod
-    def get_many(filters: DataBaseRequest) -> list[Shema] | None: ...
+    def add(self, data: dict[str, t.Any]) -> None:
+        try:
+            stmt = self._dump_add_stmt(data)
+            self._session.execute(stmt)
+        except IntegrityError as e:
+            raise DBException(e.args[0])
 
 
-    @abstractmethod
-    def add(**kwargs) -> None: ...
+    def update(self, ident: UUID | str, data: dict[str, t.Any]) -> None:
+        try:
+            stmt = self._dump_update_stmt(ident, data)
+            self._session.execute(stmt)
+        except IntegrityError as e:
+            raise DBException(e.args[0])
 
 
-    @abstractmethod
-    def update(ident: str | UUID, **kwargs) -> None: ...
-
-
-    @abstractmethod
-    def delete(ident: str | UUID) -> None: ...
+    def delete(self, ident: UUID | str) -> None:
+        try:
+            stmt = self._dump_delete_stmt(ident)
+            self._session.execute(stmt)
+        except IntegrityError as e:
+            raise DBException(e.args[0])
 
 
     def count(self, stmt: Select | None = None) -> int:
         if stmt:
-            return len(self._session.execute(stmt).all())
+            stmt.select(func.count()).select_from(self.__model__)
+
+            return (self._session.execute(stmt)).scalar_one()
 
         else:
-            return self._session.execute(select(func.count()).select_from(self.__tablemodel__)).scalar()
+            return (self._session.execute(select(func.count()).select_from(self.__model__))).scalar_one()
 
+    
+    def _get_column(self, ident: str | UUID) -> Column:
+        return inspect(self.__model__).primary_key[0]
+    
 
-    @property
-    def pk_column(self) -> Column:
-        return inspect(self.__tablemodel__).primary_key[0]
+    def _dump_add_stmt(self, data: dict[str, t.Any]) -> Insert:
+        return insert(self.__model__).values(
+            **data
+        )
+    
 
+    def _dump_get_stmt(self, ident: str | UUID) -> Select:
+        return select(self.__model__).where(
+            self._get_column(ident) == ident
+        )
+    
 
-    def _get(self, ident: str | UUID, column: Column | None = None) -> Shema | None:
-        col = column if column else self.pk_column
-        stmt: Select = select(self.__tablemodel__).where(
-            col == ident
+    def _dump_update_stmt(self, ident: str | UUID, data: dict[str, t.Any]) -> Update:
+        return update(self.__model__).where(
+            self._get_column(ident) == ident
+        ).values(
+            **data
         )
 
-        res = self._session.execute(stmt).fetchone()
 
-        result = self.__shema__.model_validate(
-            res[0], 
-            from_attributes=True
-        ) if res != None else None
-
-        return result
-
-
-    def _add(self, data: dict) -> None:
-        try:
-            stmt = insert(self.__tablemodel__).values(**data)
- 
-            self._session.execute(stmt)
-
-        except IntegrityError as e:
-            raise DBException(e.args[0])
-
-
-    def _update(self, id: str | int | UUID, data: dict, column: Column | None = None) -> None:
-        try:
-            col = column if column else self.pk_column
-            stmt = update(self.__tablemodel__).where(
-                col == id
-            ).values(**data)
-
-            self._session.execute(stmt)
-
-        except IntegrityError as e:
-            raise DBException(e.args[0])
-
-
-    def _delete(self, id: str | UUID, column: Column | None = None) -> None:
-        try:
-            col = column if column else self.pk_column
-            stmt = delete(self.__tablemodel__).where(
-                col == id
-            )
-            
-            self._session.execute(stmt)
-
-        except IntegrityError as e:
-            raise DBException(e.args[0])
+    def _dump_delete_stmt(self, ident: str | UUID) -> Delete:
+        return delete(self.__model__).where(
+            self._get_column(ident) == ident
+        )
 
 
 """
@@ -136,24 +142,15 @@ Welder repository
 """
 
 
-class WelderRepository(SQLAlchemyRepository[WelderShema, type[WelderModel]]):
-    __tablemodel__ = WelderModel
+class WelderRepository(BaseRepository[WelderShema]):
     __shema__ = WelderShema
+    __model__ = WelderModel
 
-
-    def get(self, ident: str | UUID) -> WelderShema | None:
-        if isinstance(ident, str) and not fullmatch(r"[A-Z0-9]{4}", ident):
-            return self._get(UUID(ident))
-        elif isinstance(ident, UUID): 
-            return self._get(ident)
-        else:
-            return self._get(ident, self.__tablemodel__.kleymo)
-
-
+    
     def get_many(self, filters: WelderDataBaseRequest = {}) -> list[WelderShema] | None:
         and_expressions, or_expressions = self._get_expressions(filters)
 
-        stmt = select(self.__tablemodel__).join(
+        stmt = select(self.__model__).join(
             WelderCertificationModel
         ).filter(
             and_(
@@ -169,28 +166,13 @@ class WelderRepository(SQLAlchemyRepository[WelderShema, type[WelderModel]]):
             stmt = stmt.offset(filters.get("offset"))
 
         return [WelderShema.model_validate(welder[0], from_attributes=True) for welder in self._session.execute(stmt).all()]
+    
 
+    def _get_column(self, ident: str | UUID) -> InstrumentedAttribute:
+        if isinstance(ident, str) and not fullmatch("[A-Z0-9]{4}", ident):
+            ident = UUID(ident)
 
-    def add(self, **kwargs: t.Unpack[WelderData]):
-        self._add(kwargs)
-
-
-    def update(self, ident: str | UUID, **kwargs: t.Unpack[WelderData]):
-        if isinstance(ident, str) and not fullmatch(r"[A-Z0-9]{4}", ident):
-            self._update(UUID(ident), kwargs)
-        elif isinstance(ident, UUID):
-            self._update(ident, kwargs)
-        else:
-            self._update(ident, kwargs, self.__tablemodel__.kleymo)
-
-
-    def delete(self, ident: str | int):
-        if isinstance(ident, str) and not fullmatch(r"[A-Z0-9]{4}", ident):
-            self._delete(UUID(ident))
-        elif isinstance(ident, UUID):
-            self._delete(ident)
-        else:
-            self._delete(ident, self.__tablemodel__.kleymo)
+        return WelderModel.ident if isinstance(ident, UUID) else WelderModel.kleymo
 
     
     def _get_expressions(self, filters: WelderDataBaseRequest) -> tuple[list[BinaryExpression], list[BinaryExpression]]:
@@ -243,21 +225,15 @@ Welder certification repository
 """
 
 
-class WelderCertificationRepository(SQLAlchemyRepository[WelderCertificationShema, type[WelderCertificationModel]]):
-    __tablemodel__ = WelderCertificationModel
+class WelderCertificationRepository(BaseRepository[WelderCertificationShema]):
     __shema__ = WelderCertificationShema
-
-    def get(self, ident: str | UUID) -> WelderCertificationShema | None:
-        if isinstance(ident, str):
-            ident = UUID(ident)
-
-        return self._get(ident)
+    __model__ = WelderCertificationModel
 
 
     def get_many(self, filters: WelderCertificationDataBaseRequest = {}) -> list[WelderCertificationShema] | None:
         and_expressions, or_expressions = self._get_expressions(filters)
 
-        stmt = select(self.__tablemodel__).join(
+        stmt = select(self.__model__).join(
             WelderModel
         ).filter(
             and_(
@@ -274,17 +250,6 @@ class WelderCertificationRepository(SQLAlchemyRepository[WelderCertificationShem
 
         return [WelderCertificationShema.model_validate(welder[0], from_attributes=True) for welder in self._session.execute(stmt).all()]
 
-
-    def add(self, **kwargs: t.Unpack[WelderCertificationData]):
-        self._add(kwargs)
-
-
-    def update(self, ident: str | UUID, **kwargs: t.Unpack[WelderCertificationData]):
-        self._update(ident, kwargs)
-
-
-    def delete(self, ident: str | int):
-        self._delete(ident)
 
     
     def _get_expressions(self, filters: WelderCertificationDataBaseRequest) -> tuple[list[BinaryExpression], list[BinaryExpression]]:
@@ -338,22 +303,15 @@ NDT repository
 """
 
 
-class NDTRepository(SQLAlchemyRepository[NDTShema, type[NDTModel]]):
-    __tablemodel__ = NDTModel
+class NDTRepository(BaseRepository[NDTShema]):
     __shema__ = NDTShema
-
-    
-    def get(self, ident: str | UUID) -> NDTShema | None:
-        if isinstance(ident, str):
-            ident = UUID(ident)
-
-        return self._get(ident)
+    __model__ = NDTModel
 
 
     def get_many(self, filters: NDTDataBaseRequest = {}) -> list[NDTShema] | None:
         and_expressions, or_expressions = self._get_expressions(filters)
 
-        stmt = select(self.__tablemodel__).join(
+        stmt = select(self.__model__).join(
             WelderModel
         ).filter(
             and_(
@@ -369,18 +327,6 @@ class NDTRepository(SQLAlchemyRepository[NDTShema, type[NDTModel]]):
             stmt = stmt.offset(filters.get("offset"))
 
         return [NDTShema.model_validate(welder[0], from_attributes=True) for welder in self._session.execute(stmt).all()]
-
-    
-    def add(self, **kwargs: t.Unpack[NDTData]):
-        self._add(kwargs)
-
-
-    def update(self, ident: str | int, **kwargs: t.Unpack[NDTData]):
-        self._update(ident, kwargs)
-
-
-    def delete(self, ident: str | int):
-        self._delete(ident)
 
     
     def _get_expressions(self, filters: NDTDataBaseRequest) -> tuple[list[BinaryExpression], list[BinaryExpression]]:

@@ -9,14 +9,63 @@ from errors import FieldValidationException
 from shemas import *
 
 
-class TestWelderDBService:
+@pytest.mark.usefixtures("prepare_db")
+class BaseTestDBService[Shema: BaseShema]:
+    service: BaseDBService[Shema, Shema, Shema]
+    __create_shema__: type[BaseShema]
+    __update_shema__: type[BaseShema]
+
+
+    def test_add(self, item: Shema) -> None:
+        self.service.add(self.__create_shema__.model_validate(item, from_attributes=True))
+        assert self.service.get(item.ident) == item
+
+
+    def test_get(self, attr: str, item: Shema) -> None:
+
+        assert self.service.get(getattr(item, attr)) == item
+
+
+    def test_update(self, ident: str, data: dict) -> None:
+
+        assert self.service.get(ident)
+
+        self.service.update(ident, self.__update_shema__.model_validate(data, from_attributes=True))
+        item = self.service.get(ident)
+
+        for key, value in data.items():
+            if isinstance(getattr(item, key), date):
+                assert getattr(item, key) == str_to_datetime(value, False).date()
+                continue
+
+            assert getattr(item, key) == value
+
+    
+    def test_fail_update(self, ident: str, data: dict, exception) -> None:
+        with pytest.raises(exception):
+            self.service.update(ident, self.__update_shema__.model_validate(data, from_attributes=True))
+
+
+    def test_delete(self, item: Shema) -> None:
+
+        self.service.delete(item.ident)
+
+        assert not bool(self.service.get(item.ident))
+
+        self.service.add(self.__create_shema__.model_validate(item, from_attributes=True))
+
+
+
+class TestWelderDBService(BaseTestDBService[WelderShema]):
     service = WelderDBService()
+    __create_shema__ = CreateWelderShema
+    __update_shema__ = UpdateWelderShema
+
 
     @pytest.mark.usefixtures('welders')
     def test_add(self, welders: list[WelderShema]) -> None:
         for welder in welders:
-            self.service.add(**welder.model_dump())
-            assert self.service.get(welder.ident) == welder
+            super().test_add(welder)
 
         assert self.service.count() == 100
 
@@ -32,29 +81,20 @@ class TestWelderDBService:
             ]
     )
     def test_get(self, attr: str, index: int, welders: list[WelderShema]) -> None:
-        welder = welders[index]
-
-        assert self.service.get(getattr(welder, attr)) == welder
+        super().test_get(attr, welders[index])
 
     
     @pytest.mark.parametrize(
-            "ident, data",
-            [
-                ("095898d1419641b3adf45af287aad3e7", {"name": "dsdsds", "birthday": "15.12.1995"}),
-                ("dc20817ed3844660a69b5c89d7df15ac", {"passport_number": "T15563212", "sicil": "1585254"}),
-                ("d00b26c65fdf4a819c5065e301dd81dd", {"nation": "RUS", "status": 1}),
-            ]
+        "ident, data",
+        [
+            ("095898d1419641b3adf45af287aad3e7", {"name": "dsdsds", "birthday": "15.12.1995"}),
+            ("dc20817ed3844660a69b5c89d7df15ac", {"passport_number": "T15563212", "sicil": "1585254"}),
+            ("d00b26c65fdf4a819c5065e301dd81dd", {"nation": "RUS", "status": 1}),
+        ]
     )
     def test_update(self, ident: str, data: dict) -> None:
-        self.service.update(ident, **data)
-        welder = self.service.get(ident)
 
-        for key, value in data.items():
-            if isinstance(getattr(welder, key), date):
-                assert getattr(welder, key) == str_to_datetime(value, False).date()
-                continue
-
-            assert getattr(welder, key) == value
+        super().test_update(ident, data)
 
     
     @pytest.mark.parametrize(
@@ -65,8 +105,7 @@ class TestWelderDBService:
             ]
     )
     def test_fail_update(self, ident: str, data: dict, exception) -> None:
-        with pytest.raises(exception):
-            self.service.update(ident, **data)
+        super().test_fail_update(ident, data, exception)
 
 
     @pytest.mark.usefixtures('welders')
@@ -75,25 +114,21 @@ class TestWelderDBService:
             [0, 34, 65, 1, 88, 90]
     )
     def test_delete(self, welders: list[WelderShema], index: int) -> None:
-        welder = welders[index]
-
-        self.service.delete(welder.ident)
-
-        assert not bool(self.service.get(welder.ident))
-
-        self.service.add(**welder.model_dump())
+        super().test_delete(welders[index])
 
 
-class TestWelderCertificationDBService:
+class TestWelderCertificationDBService(BaseTestDBService[WelderCertificationShema]):
     service = WelderCertificationDBService()
+    __create_shema__ = CreateWelderCertificationShema
+    __update_shema__ = UpdateWelderCertificationShema
+
 
     @pytest.mark.usefixtures('welder_certifications')
     def test_add(self, welder_certifications: list[WelderCertificationShema]) -> None:
         for certification in welder_certifications:
-            self.service.add(**certification.model_dump())
-            assert self.service.get(certification.ident) == certification
+            super().test_add(certification)
 
-        assert self.service.count() == 100
+        assert self.service.count() == len(welder_certifications)
 
 
     @pytest.mark.usefixtures('welder_certifications')
@@ -102,9 +137,7 @@ class TestWelderCertificationDBService:
             [1, 7, 31, 80]
     )
     def test_get(self, index: int, welder_certifications: list[WelderCertificationShema]) -> None:
-        certification = welder_certifications[index]
-
-        assert self.service.get(certification.ident) == certification
+        super().test_get("ident", welder_certifications[index])
 
 
     @pytest.mark.parametrize(
@@ -117,17 +150,9 @@ class TestWelderCertificationDBService:
             ]
     )
     def test_update(self, ident: str, data: dict) -> None:
-        self.service.update(ident, **data)
-        certification = self.service.get(ident)
-
-        for key, value in data.items():
-            if isinstance(getattr(certification, key), date):
-                assert getattr(certification, key) == str_to_datetime(value, False).date()
-                continue
-
-            assert getattr(certification, key) == value
-
+        super().test_update(ident, data)
     
+
     @pytest.mark.parametrize(
             "ident, data, exception",
             [
@@ -137,8 +162,7 @@ class TestWelderCertificationDBService:
             ]
     )
     def test_fail_update(self, ident: str, data: dict, exception) -> None:
-        with pytest.raises(exception):
-            self.service.update(ident, **data)
+        super().test_fail_update(ident, data, exception)
 
 
     @pytest.mark.usefixtures('welder_certifications')
@@ -147,23 +171,19 @@ class TestWelderCertificationDBService:
             [0, 34, 65, 1, 88, 90]
     )
     def test_delete(self, welder_certifications: list[WelderCertificationShema], index: int) -> None:
-        certification = welder_certifications[index]
-
-        self.service.delete(certification.ident)
-
-        assert not bool(self.service.get(certification.ident))
-
-        self.service.add(**certification.model_dump())
+        super().test_delete(welder_certifications[index])
 
 
-class TestNDTDBService:
+class TestNDTDBService(BaseTestDBService[NDTShema]):
     service = NDTDBService()
+    __create_shema__ = CreateNDTShema
+    __update_shema__ = UpdateNDTShema
+
 
     @pytest.mark.usefixtures('ndts')
     def test_add(self, ndts: list[NDTShema]) -> None:
         for ndt in ndts:
-            self.service.add(**ndt.model_dump())
-            assert self.service.get(ndt.ident) == ndt
+            super().test_add(ndt)
 
         assert self.service.count() == len(ndts)
 
@@ -174,9 +194,7 @@ class TestNDTDBService:
             [1, 7, 31, 80]
     )
     def test_get(self, index: int, ndts: list[NDTShema]) -> None:
-        ndt = ndts[index]
-
-        assert self.service.get(ndt.ident) == ndt
+        super().test_get("ident", ndts[index])
 
 
     @pytest.mark.parametrize(
@@ -188,15 +206,7 @@ class TestNDTDBService:
             ]
     )
     def test_update(self, ident: str, data: dict) -> None:
-        self.service.update(ident, **data)
-        ndt = self.service.get(ident)
-
-        for key, value in data.items():
-            if isinstance(getattr(ndt, key), date):
-                assert getattr(ndt, key) == str_to_datetime(value, False).date()
-                continue
-
-            assert getattr(ndt, key) == value
+        super().test_update(ident, data)
 
     
     @pytest.mark.parametrize(
@@ -206,8 +216,7 @@ class TestNDTDBService:
             ]
     )
     def test_fail_update(self, ident: str, data: dict, exception) -> None:
-        with pytest.raises(exception):
-            self.service.update(ident, **data)
+        super().test_fail_update(ident, data, exception)
 
 
     @pytest.mark.usefixtures('ndts')
@@ -216,10 +225,4 @@ class TestNDTDBService:
             [0, 34, 65, 1, 88, 90]
     )
     def test_delete(self, ndts: list[NDTShema], index: int) -> None:
-        ndt = ndts[index]
-
-        self.service.delete(ndt.ident)
-
-        assert not bool(self.service.get(ndt.ident))
-
-        self.service.add(**ndt.model_dump())
+        super().test_delete(ndts[index])

@@ -2,11 +2,11 @@ import typing as t
 
 from sqlalchemy import event
 
-from db_engine import get_session
-from repositories import SQLAlchemyRepository
+from db.db_engine import get_session
+from db.repositories import BaseRepository
 
 
-class IUnitOfWork[Repository: SQLAlchemyRepository](t.Protocol):
+class IUnitOfWork[Repository: BaseRepository](t.Protocol):
     def __init__(self, repository: type[Repository]) -> None: ...
 
     
@@ -22,7 +22,7 @@ class IUnitOfWork[Repository: SQLAlchemyRepository](t.Protocol):
     def rollback(self) -> None: ...
 
 
-class UnitOfWork[Repository: SQLAlchemyRepository]:
+class UnitOfWork[Repository: BaseRepository]:
     def __init__(self, repository_type: type[Repository]) -> None:
         self.repository_type = repository_type
     
