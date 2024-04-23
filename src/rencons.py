@@ -1,5 +1,5 @@
 from click import group
-from commands import *
+from commands import welder_commands, welder_certification_commands, ndt_commands, naks_commands
 
 
 @group
@@ -10,7 +10,6 @@ cli.add_command(welder_commands)
 cli.add_command(welder_certification_commands)
 cli.add_command(ndt_commands)
 cli.add_command(naks_commands)
-cli.add_command(attestation_commands)
 
 
 if __name__ == "__main__":

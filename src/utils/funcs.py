@@ -98,13 +98,12 @@ def dicts_as_console_table[Shema: IShortDumpShema](*args: Shema) -> Table:
         table.add_column(header, header_style="cyan", justify="center")
         
 
-    for e, arg in enumerate(args):
+    for e, arg in enumerate(args, start=1):
         if not isinstance(arg, shemas_type):
             raise ValueError()
         
         data = arg.short_model_dump()
         row_data = [str(e)] + list(map(str, data.values()))
-        row_data = [i for i in row_data]
         
         for e in range(len(row_data)):
             if row_data[e] is None:
@@ -138,6 +137,9 @@ def click_date_required(date_string: str) -> date:
 
 @func_name_decorator("date or null")
 def click_date_optional(date_string: str) -> date | None:
+    if not date_string or date_string == "None":
+        return None
+    
     _date = to_date(date_string, dayfirst=False)
 
     if not _date:
@@ -185,3 +187,15 @@ def click_int_optional(value: str | int | None) -> int | str | None:
             return int(value)
         except:
             raise ClickException("invalid float string")
+
+
+@func_name_decorator("str or null")
+def click_str_optional(value: str | int | None) -> str | None:
+    if value == None or isinstance(value, str):
+        return value
+    
+    else:
+        try:
+            return str(value)
+        except:
+            raise ClickException(f"{value} cannot be converted to str")

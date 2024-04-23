@@ -1,7 +1,8 @@
 from click.testing import CliRunner
+from json import load
 import pytest
 
-from commands import (
+from commands.db_commands import (
     AddWelderCommand,
     UpdateWelderCommand,
     DeleteWelderCommand,
@@ -13,13 +14,21 @@ from commands import (
     DeleteNDTCommand
 )
 from services.db_services import *
-from shemas import WelderShema, WelderCertificationShema, NDTShema
-from conftest import from_shema_to_cmd_arguments, from_dict_to_cmd_args
+from shemas import (
+    WelderShema, 
+    CreateWelderShema, 
+    WelderCertificationShema, 
+    CreateWelderCertificationShema, 
+    NDTShema, 
+    CreateNDTShema
+)
+from conftest import from_dict_to_cmd_args
+from settings import Settings
 
 
 runner = CliRunner()
 
-
+@pytest.mark.usefixtures("prepare_db")
 class TestWelderCommands:
     @pytest.mark.usefixtures('welders')
     def test_add_welder_command(self, welders: list[WelderShema]):
@@ -27,11 +36,11 @@ class TestWelderCommands:
 
         for welder in welders:
 
-            args = from_shema_to_cmd_arguments(welder)
+            args = from_dict_to_cmd_args(welder.model_dump())
  
             ctx = AddWelderCommand().make_context(
                 info_name="add-welder", 
-                args=args
+                args=list(args)
             )
             AddWelderCommand().invoke(ctx)
 
@@ -39,20 +48,37 @@ class TestWelderCommands:
 
         assert service.count() == len(welders)
 
+    
+    
+    @pytest.mark.usefixtures('welders')
+    def test_add_from_file(self, welders: list[WelderShema]):
+        service = WelderDBService()
+
+        welders_from_file = load(open(f"{Settings.BASE_DIR()}\\test\\test_data\\some_welders.json", "r", encoding="utf-8"))
+
+        ctx = AddWelderCommand().make_context(
+            info_name="add-welder", 
+            args=[f"--from-file={Settings.BASE_DIR()}\\test\\test_data\\some_welders.json"]
+        )
+        AddWelderCommand().invoke(ctx)
+
+        assert service.count() == len(welders) + len(welders_from_file)
+
+
 
     @pytest.mark.parametrize(
-        "ident, data", 
+        "ident, data",
         [
-            ("01X0", {"kleymo": "01X0", "name": "ADADrf vvtt", "birthday": "1990-10-11"}),
+            ("01X0", {"name": "ADADrf vvtt", "birthday": "1990-10-11"}),
             ("9090ae6f534141669b34e7019bbcf285", {"passport_number": "Y5562554", "sicil": "255614"}),
-            ("0576", {"kleymo": "0576", "nation": "RUS", "status": 0})
+            ("0576", {"nation": "RUS", "status": 0})
         ]
     )
     def test_update_welder_command(self, ident: str,  data: dict) -> None:
         service = WelderDBService()
         welder = service.get(ident)
 
-        assert bool(welder)
+        assert welder
 
         welder.update_shema(data)
 
@@ -70,14 +96,14 @@ class TestWelderCommands:
 
         welder = service.get(ident)
 
-        assert bool(welder)
+        assert welder
 
         ctx = DeleteWelderCommand().make_context(info_name="delete-welder", args=[f"--ident={ident}"])
         DeleteWelderCommand().invoke(ctx)
 
         assert not bool(service.get(ident))
 
-        service.add(**welder.model_dump())
+        service.add(CreateWelderShema.model_validate(welder, from_attributes=True))
 
 
 class TestWelderCertificationCommands:
@@ -87,14 +113,12 @@ class TestWelderCertificationCommands:
         service = WelderCertificationDBService()
 
         for cert in welder_certifications:
-            if bool(service.get(cert.ident)):
-                service.delete(cert.ident)
 
-            args = from_shema_to_cmd_arguments(cert)
+            args = from_dict_to_cmd_args(cert.model_dump())
 
             ctx = AddWelderCertificationCommand().make_context(
                 info_name="add-welder-certification", 
-                args=args
+                args=list(args)
             )
             AddWelderCertificationCommand().invoke(ctx)
 
@@ -119,7 +143,7 @@ class TestWelderCertificationCommands:
         cert = service.get(ident)
         args = list(from_dict_to_cmd_args(data))
 
-        assert bool(cert)
+        assert cert
         
         cert.update_shema(data)
 
@@ -143,14 +167,14 @@ class TestWelderCertificationCommands:
 
         cert = service.get(ident)
 
-        assert bool(cert)
+        assert cert
 
         ctx = DeleteWelderCertificationCommand().make_context(info_name="delete-welder-certification", args=[f"--ident={ident}"])
         DeleteWelderCertificationCommand().invoke(ctx)
 
         assert not bool(service.get(ident))
 
-        service.add(**cert.model_dump())
+        service.add(CreateWelderCertificationShema.model_validate(cert, from_attributes=True))
 
 
 class TestNDTCommands:
@@ -160,14 +184,12 @@ class TestNDTCommands:
         service = NDTDBService()
 
         for ndt in ndts:
-            if bool(service.get(ndt.ident)):
-                service.delete(ndt.ident)
 
-            args = from_shema_to_cmd_arguments(ndt)
+            args = from_dict_to_cmd_args(ndt.model_dump())
 
             ctx = AddNDTCommand().make_context(
                 info_name="add-ndt", 
-                args=args
+                args=list(args)
             )
             AddNDTCommand().invoke(ctx)
             assert service.get(ndt.ident) == ndt
@@ -187,7 +209,7 @@ class TestNDTCommands:
         service = NDTDBService()
         ndt = service.get(ident)
 
-        assert bool(ndt)
+        assert ndt
 
         ndt.update_shema(data)
 
@@ -205,11 +227,11 @@ class TestNDTCommands:
 
         ndt = service.get(ident)
 
-        assert bool(ndt)
+        assert ndt
 
         ctx = DeleteNDTCommand().make_context(info_name="delete-ndt", args=[f"--ident={ident}"])
         DeleteNDTCommand().invoke(ctx)
 
         assert not bool(service.get(ident))
 
-        service.add(**ndt.model_dump())
+        service.add(CreateNDTShema.model_validate(ndt, from_attributes=True))

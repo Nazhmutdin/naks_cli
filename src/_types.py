@@ -2,7 +2,7 @@ import typing as t
 from datetime import date, datetime
 from pathlib import Path
 
-from utils.funcs import click_date_optional, click_date_required, click_float_optional, click_list_optional, click_int_optional
+from utils.funcs import click_date_optional, click_date_required, click_float_optional, click_list_optional, click_int_optional, click_str_optional
 
 
 __all__: list[str] = [
@@ -81,54 +81,54 @@ Data dicts
 
 
 class WelderData(t.TypedDict):
-    kleymo: str
-    name: str
+    kleymo: t.Annotated[str | None, click_str_optional]
+    name: t.Annotated[str | None, click_str_optional]
     birthday: t.Annotated[date | None, click_date_optional]
-    passport_number: str
-    sicil: str
-    nation: str
-    status: int
+    passport_number: t.Annotated[str | None, click_str_optional]
+    sicil: t.Annotated[str | None, click_str_optional]
+    nation: t.Annotated[str | None, click_str_optional]
+    status: t.Annotated[int | None, click_int_optional]
 
 
 class WelderCertificationData(t.TypedDict):
-    kleymo: str
-    job_title: str
-    certification_number: str
+    kleymo: t.Annotated[str | None, click_str_optional]
+    job_title: t.Annotated[str | None, click_str_optional]
+    certification_number: t.Annotated[str | None, click_str_optional]
     certification_date: t.Annotated[date, click_date_required]
     expiration_date: t.Annotated[date, click_date_required]
     expiration_date_fact: t.Annotated[date, click_date_required]
-    insert: str 
-    certification_type: str 
-    company: str 
+    insert: t.Annotated[str | None, click_str_optional] 
+    certification_type: t.Annotated[str | None, click_str_optional] 
+    company: t.Annotated[str | None, click_str_optional] 
     gtd: t.Annotated[list[str] | None, click_list_optional]
-    method: str
+    method: t.Annotated[str | None, click_str_optional]
     details_type: t.Annotated[list[str] | None, click_list_optional]
     joint_type: t.Annotated[list[str] | None, click_list_optional]
     welding_materials_groups: t.Annotated[list[str] | None, click_list_optional]
-    welding_materials: str 
+    welding_materials: t.Annotated[str | None, click_str_optional] 
     details_thikness_from: t.Annotated[float | None, click_float_optional] 
     details_thikness_before: t.Annotated[float | None, click_float_optional] 
     outer_diameter_from: t.Annotated[float | None, click_float_optional] 
     outer_diameter_before: t.Annotated[float | None, click_float_optional] 
-    welding_position: str 
-    connection_type: str 
+    welding_position: t.Annotated[str | None, click_str_optional] 
+    connection_type: t.Annotated[str | None, click_str_optional] 
     rod_diameter_from: t.Annotated[float | None, click_float_optional] 
     rod_diameter_before: t.Annotated[float | None, click_float_optional] 
-    rod_axis_position: str 
-    weld_type: str 
-    joint_layer: str 
-    sdr: str 
-    automation_level: str 
+    rod_axis_position: t.Annotated[str | None, click_str_optional] 
+    weld_type: t.Annotated[str | None, click_str_optional] 
+    joint_layer: t.Annotated[str | None, click_str_optional] 
+    sdr: t.Annotated[str | None, click_str_optional] 
+    automation_level: t.Annotated[str | None, click_str_optional] 
     details_diameter_from: t.Annotated[float | None, click_float_optional] 
     details_diameter_before: t.Annotated[float | None, click_float_optional] 
-    welding_equipment: str 
+    welding_equipment: t.Annotated[str | None, click_str_optional] 
 
 
 class NDTData(t.TypedDict):
-    kleymo: str
-    company: str
-    subcompany: str
-    project: str
+    kleymo: t.Annotated[str | None, click_str_optional]
+    company: t.Annotated[str | None, click_str_optional]
+    subcompany: t.Annotated[str | None, click_str_optional]
+    project: t.Annotated[str | None, click_str_optional]
     welding_date: t.Annotated[date, click_date_required] 
     total_weld_1: t.Annotated[float | None, click_float_optional] 
     total_ndt_1: t.Annotated[float | None, click_float_optional] 

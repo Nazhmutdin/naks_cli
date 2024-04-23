@@ -100,6 +100,7 @@ class WelderShema(BaseWelderShema):
             return UUID(v)
         
         return v
+    
 
     @field_validator("kleymo")
     @classmethod
@@ -119,6 +120,9 @@ class WelderShema(BaseWelderShema):
     @field_validator("birthday")
     @classmethod
     def validate_birthday(cls, v: str | tuple[int, int, int] | None):
+        if not v or v == "None":
+            return None
+        
         return to_date(v)
 
 

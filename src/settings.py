@@ -41,7 +41,10 @@ class Settings:
 
     @classmethod
     def BASE_DIR(cls) -> Path:
-        return Path.cwd()
+        if cls.MODE() == "TEST":
+            return Path.cwd()
+        
+        return Path.cwd().parent
 
 
     @classmethod

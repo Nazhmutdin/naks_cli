@@ -1,7 +1,11 @@
 from uuid import UUID
+from random import choices
+from string import ascii_letters, digits
+import json
+import os
 import typing as t
 
-from click import Command, Option, Choice, group, echo
+from click import Command, Option, Choice, ClickException, group, echo
 from pydantic import ValidationError
 from rich.console import Console
 
@@ -23,8 +27,7 @@ from errors import (
     UpdateCommandExeption, 
     DeleteCommandExeption, 
     GetCommandExeption,
-    GetManyCommandExeption,
-    NaksCommandExeption
+    GetManyCommandExeption
 )
 from shemas import *
 
@@ -32,66 +35,97 @@ from shemas import *
 __all__: list[str] = [
     "welder_commands",
     "welder_certification_commands",
-    "ndt_commands",
-    "naks_commands",
-    "attestation_commands"
+    "ndt_commands"
 ]
 
 
 """
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-Database commands
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+=============================================================================================================
+base db commands
+=============================================================================================================
 """
 
 
-class BaseAddCommand(Command):
+class BaseAddCommand[CreateShema: BaseShema](Command):
     def __init__(self, name: str, options: t.Iterable[Option], help: str | None = None) -> None:
+        self.__create_shema__: CreateShema
+
         super().__init__(
-            name=name, 
-            params=options, 
+            name=name,
+            params= self._default_options + options,
             help=help,
             callback=self.execute
         )
 
 
-    def execute(self, **data) -> None:
+    def execute(self, from_file: str, **data) -> None:
         service = self._init_service()
         
         try:
-            service.add(**filtrate_extra_args(data))
+            if from_file:
+                data = self._read_data_from_file(from_file)
+                
+                if isinstance(data, list):
+                    service.add(*[self.__create_shema__.model_validate(item) for item in data])
+
+                if isinstance(data, dict):
+                    service.add(self.__create_shema__.model_validate(data))
+                    
+            else:
+                service.add(self.__create_shema__.model_validate(filtrate_extra_args(data)))
+
         except ValidationError as e:
             raise AddCommandExeption(f"data validation failed\n\nDetail: {e}")
         except DBException as e:
             raise AddCommandExeption(f"adding failed\n\nDetail: {e.message}")
+        
+
+    def _read_data_from_file(self, file_path: str) -> JsonRenderable:
+
+        if not os.path.exists(file_path):
+            raise ClickException(f"file ({file_path}) not exists")
+        
+        if file_path.endswith(".json"):
+            return json.load(open(file_path, "r", encoding="utf-8"))
+        
+        else:
+            raise ClickException("invalid file extension")
 
 
     def _init_service(self) -> BaseDBService: ...
+        
+    
+    @property
+    def _default_options(self) -> list[Option]:
+        return [
+            Option(["--from-file"], type=str, default=None)
+        ]
 
 
 class BaseGetCommand[Shema: BaseShema](Command):
     def __init__(self, name: str, options: list[Option] = [], help: str | None = None) -> None:
-        default_options = [Option(["--ident"], type=str), Option(["--mode"], type=Choice(["show", "json", "excel"]), default="show")]
 
         super().__init__(
             name=name,
-            params=default_options + options,
+            params= self._default_options + options,
             help=help,
             callback=self.execute
         )
 
 
-    def execute(self, ident: str, mode: t.Literal["show", "json", "excel"]) -> None:
+    def execute(self, ident: str, mode: t.Literal["show", "json", "excel"], file_name: str | None) -> None:
         res = self._get_data(ident)
 
         if not res:
             raise GetCommandExeption(f"data with ident ({ident}) not found")
         
+        if not file_name:
+            file_name = self._gen_file_name()
+        
         match mode:
             case "show":
                 self._show_result(res)
             case "json":
-                file_name = self._gen_file_name(res)
                 data = res.model_dump(mode="json")
                 self._save_as_json(data, file_name)
             case "excel":
@@ -110,8 +144,8 @@ class BaseGetCommand[Shema: BaseShema](Command):
         echo(f"file ({file_name}.json) created | {len(data)} elements found")
 
     
-    def _gen_file_name(self, shema: Shema) -> str:
-        raise NotImplementedError
+    def _gen_file_name(self) -> str:
+        return f"file_{"".join(choices(ascii_letters+digits, k=10))}"
 
 
     def _get_data(self, ident: str) -> Shema | None:
@@ -122,23 +156,35 @@ class BaseGetCommand[Shema: BaseShema](Command):
         except DBException as e:
             raise GetCommandExeption(f"failed getting data\n\nDetail: {e.message}")
         except Exception as e:
-            raise GetCommandExeption(f"something gone wrong\n\nDetail: {e.args[0]}")
+            raise GetCommandExeption(f"something gone wrong\n\nDetail: {e.args}")
 
 
-    def _init_service(self) -> BaseDBService[BaseShema, DataBaseRequest]: ...
-
-
-class BaseGetManyCommand[Shema: BaseShema](BaseGetCommand):
-    def __init__(self, name: str, options: list[Option] = [], help: str | None = None) -> None:
-        options = options + [Option(["--file-name"], type=str, required=True)]
-        super().__init__(name, options, help)
-
+    def _init_service(self) -> BaseDBService: ...
+            
     
-    def execute[Request: DataBaseRequest](self, mode: t.Literal["show", "json", "excel"], file_name: str, **filters: t.Unpack[Request]):
+    @property
+    def _default_options(self) -> list[Option]:
+        return [
+            Option(["--ident"], type=str), 
+            Option(["--mode"], type=Choice(["show", "json", "excel"]), default="show"),
+            Option(["--file-name"], type=str, default=None)
+        ]
+
+
+class BaseGetManyCommand[Shema: BaseShema](BaseGetCommand[Shema]):
+    
+    def execute[Request: DataBaseRequest](
+            self, mode: t.Literal["show", "json", "excel"], 
+            file_name: str | None, 
+            **filters: t.Unpack[Request]
+        ):
         res = self._get_data(filters)
 
         if not res:
-            raise GetCommandExeption(f"data not found")
+            raise GetManyCommandExeption(f"data not found")
+
+        if not file_name:
+            file_name = self._gen_file_name()
         
         match mode:
             case "show":
@@ -159,22 +205,34 @@ class BaseGetManyCommand[Shema: BaseShema](BaseGetCommand):
             raise GetCommandExeption(f"failed getting data\n\nDetail: {e.message}")
         except Exception as e:
             raise GetCommandExeption(f"something gone wrong\n\nDetail: {e.args[0]}")
+            
+    
+    @property
+    def _default_options(self) -> list[Option]:
+        return [
+            Option(["--mode"], type=Choice(["show", "json", "excel"]), default="show"),
+            Option(["--file-name"], type=str, default=None)
+        ]
+        
 
+class BaseUpdateCommand[UpdateShema: BaseShema](Command):
+    def __init__(self, name: str, options: list[Option] = [], help: str | None = None) -> None:
+        self.__update_shema__: UpdateShema
 
-class BaseUpdateCommand(Command):
-    def __init__(self, name: str, options: t.Iterable[Option], help: str | None = None) -> None:
         super().__init__(
             name=name, 
-            params=options, 
+            params=self._default_options + options,
             help=help,
             callback=self.execute
         )
 
 
     def execute(self, ident: str | UUID, **data) -> None:
+
         service = self._init_service()
         try:
-            service.update(ident, **filtrate_extra_args(data))
+            data = self.__update_shema__.model_validate(filtrate_extra_args(data))
+            service.update(ident, data)
         except ValidationError as e:
             raise UpdateCommandExeption(f"data validation failed\n\nDetail: {e.title}")
         except DBException as e:
@@ -182,13 +240,21 @@ class BaseUpdateCommand(Command):
 
 
     def _init_service(self) -> BaseDBService: ...
+        
+    
+    @property
+    def _default_options(self) -> list[Option]:
+        return [
+            Option(["--ident"], type=str, default=None)
+        ]
 
 
 class BaseDeleteCommand(Command):
-    def __init__(self, name: str, options: t.Iterable[Option], help: str | None = None) -> None:
+    def __init__(self, name: str, options: t.Iterable[Option] = [], help: str | None = None) -> None:
+
         super().__init__(
             name=name, 
-            params=options, 
+            params=self._default_options + options,
             help=help,
             callback=self.execute
         )
@@ -203,17 +269,27 @@ class BaseDeleteCommand(Command):
 
 
     def _init_service(self) -> BaseDBService: ...
+        
+    
+    @property
+    def _default_options(self) -> list[Option]:
+        return [
+            Option(["--ident"], type=str, default=None)
+        ]
 
 
 """
-=========================================================
+=============================================================================================================
 welder commands
-=========================================================
+=============================================================================================================
 """
+
 
 class AddWelderCommand(BaseAddCommand):
     def __init__(self) -> None:
         options = [Option(["--ident"], type=str)] + get_options(WelderData)
+        self.__create_shema__ = CreateWelderShema
+
         super().__init__(
             name="add",
             options=options
@@ -229,10 +305,6 @@ class GetWelderCommand(BaseGetCommand):
         super().__init__(
             name="get"
         )
-
-    
-    def _gen_file_name(self, shema: WelderShema) -> str:
-        return f"{shema.kleymo}_{shema.name}"
 
     
     def _init_service(self) -> WelderDBService:
@@ -253,7 +325,9 @@ class GetManyWelderCommand(BaseGetManyCommand):
 
 class UpdateWelderCommand(BaseUpdateCommand):
     def __init__(self) -> None:
-        options = [Option(["--ident"], type=str)] + get_options(WelderData)
+        options = get_options(WelderData)
+        self.__update_shema__ = UpdateWelderShema
+
         super().__init__(
             name="update",
             options=options
@@ -266,10 +340,8 @@ class UpdateWelderCommand(BaseUpdateCommand):
 
 class DeleteWelderCommand(BaseDeleteCommand):
     def __init__(self) -> None:
-        options = [Option(["--ident"], type=str)]
         super().__init__(
-            name="delete",
-            options=options
+            name="delete"
         )
 
 
@@ -289,15 +361,17 @@ welder_commands.add_command(DeleteWelderCommand())
 
 
 """
-=========================================================
+=============================================================================================================
 welder certification commands
-=========================================================
+=============================================================================================================
 """
 
 
 class AddWelderCertificationCommand(BaseAddCommand):
     def __init__(self) -> None:
         options = [Option(["--ident"], type=str)] + get_options(WelderCertificationData)
+        self.__create_shema__ = CreateWelderCertificationShema
+
         super().__init__(
             name="add",
             options=options
@@ -313,15 +387,6 @@ class GetWelderCertificationCommand(BaseGetCommand):
         super().__init__(
             name="get"
         )
-
-    
-    def _gen_file_name(self, shema: WelderCertificationShema) -> str:
-        certification_number = shema.certification_number
-
-        if shema.insert:
-            certification_number = f"{certification_number}~{shema.insert}"
-
-        return f"{shema.kleymo}_{certification_number}_{shema.certification_date}"
 
     
     def _init_service(self) -> WelderCertificationDBService:
@@ -342,7 +407,9 @@ class GetManyWelderCertificationCommand(BaseGetManyCommand):
 
 class UpdateWelderCertificationCommand(BaseUpdateCommand):
     def __init__(self) -> None:
-        options = [Option(["--ident"], type=str)] + get_options(WelderCertificationData)
+        options = get_options(WelderCertificationData)
+        self.__update_shema__ = UpdateWelderCertificationShema
+
         super().__init__(
             name="update",
             options=options
@@ -355,10 +422,9 @@ class UpdateWelderCertificationCommand(BaseUpdateCommand):
 
 class DeleteWelderCertificationCommand(BaseDeleteCommand):
     def __init__(self) -> None:
-        options = [Option(["--ident"], type=str)]
+
         super().__init__(
-            name="delete",
-            options=options
+            name="delete"
         )
 
 
@@ -379,15 +445,16 @@ welder_certification_commands.add_command(DeleteWelderCertificationCommand())
 
 
 """
-=========================================================
+=============================================================================================================
 ndt commands
-=========================================================
+=============================================================================================================
 """
 
 
 class AddNDTCommand(BaseAddCommand):
     def __init__(self) -> None:
         options = [Option(["--ident"], type=str)] + get_options(NDTData)
+        self.__create_shema__ = CreateNDTShema
         super().__init__(
             name="add",
             options=options
@@ -403,10 +470,6 @@ class GetNDTCommand(BaseGetCommand):
         super().__init__(
             name="get"
         )
-
-    
-    def _gen_file_name(self, shema: NDTShema) -> str:
-        return f"{shema.kleymo}_{shema.company}_{shema.subcompany}_{shema.project}_{shema.welding_date}"
 
     
     def _init_service(self) -> NDTDBService:
@@ -427,7 +490,8 @@ class GetManyNDTCommand(BaseGetManyCommand):
 
 class UpdateNDTCommand(BaseUpdateCommand):
     def __init__(self) -> None:
-        options = [Option(["--ident"], type=str)] + get_options(NDTData)
+        options = get_options(NDTData)
+        self.__update_shema__ = UpdateNDTShema
         super().__init__(
             name="update",
             options=options
@@ -440,10 +504,8 @@ class UpdateNDTCommand(BaseUpdateCommand):
 
 class DeleteNDTCommand(BaseDeleteCommand):
     def __init__(self) -> None:
-        options = [Option(["--ident"], type=str)]
         super().__init__(
-            name="delete",
-            options=options
+            name="delete"
         )
 
 
@@ -461,73 +523,3 @@ ndt_commands.add_command(GetNDTCommand())
 ndt_commands.add_command(GetManyNDTCommand())
 ndt_commands.add_command(UpdateNDTCommand())
 ndt_commands.add_command(DeleteNDTCommand())
-
-
-"""
-=========================================================
-naks commands
-=========================================================
-"""
-
-
-class BaseParseNaksCommand(Command): 
-    def __init__(self, name: str) -> None:
-        super().__init__(
-            name=name,
-            callback=self.execute
-        )
-    
-    
-    def execute(self) -> None:
-        raise NaksCommandExeption("not implemented")
-
-
-class ParseNaksPersonalCommand(BaseParseNaksCommand): 
-    def __init__(self) -> None:
-        super().__init__(
-            name="parse-personal"
-        )
-
-
-class ParseACSTPersonalCommand(BaseParseNaksCommand): 
-    def __init__(self) -> None:
-        super().__init__(
-            name="parse-acst"
-        )
-
-
-class ParseACSOPersonalCommand(BaseParseNaksCommand): 
-    def __init__(self) -> None:
-        super().__init__(
-            name="parse-acso"
-        )
-
-
-class ParseACSMPersonalCommand(BaseParseNaksCommand): 
-    def __init__(self) -> None:
-        super().__init__(
-            name="parse-acsm"
-        )
-
-
-@group("naks", help="extract welders | engineers | acst | acso | acsm data from naks site")
-def naks_commands():
-    ...
-
-
-naks_commands.add_command(ParseNaksPersonalCommand())
-naks_commands.add_command(ParseACSTPersonalCommand())
-naks_commands.add_command(ParseACSOPersonalCommand())
-naks_commands.add_command(ParseACSMPersonalCommand())
-
-
-"""
-=========================================================
-attestation commands
-=========================================================
-"""
-
-
-@group("attestation", help="creates attestation docs for welders | engineers | acst | acso | acsm")
-def attestation_commands():
-    ...

@@ -169,10 +169,11 @@ class WelderRepository(BaseRepository[WelderShema]):
     
 
     def _get_column(self, ident: str | UUID) -> InstrumentedAttribute:
-        if isinstance(ident, str) and not fullmatch("[A-Z0-9]{4}", ident):
+        try:
             ident = UUID(ident)
-
-        return WelderModel.ident if isinstance(ident, UUID) else WelderModel.kleymo
+            return WelderModel.ident
+        except:
+            return WelderModel.kleymo
 
     
     def _get_expressions(self, filters: WelderDataBaseRequest) -> tuple[list[BinaryExpression], list[BinaryExpression]]:
