@@ -1,5 +1,6 @@
 import pytest
 import typing as t
+from uuid import UUID
 from datetime import date
 
 from utils.funcs import to_date
@@ -36,9 +37,9 @@ class BaseTestRepository[Shema: BaseShema]:
             uow.commit()
 
     
-    def test_get(self, attr: str, el: Shema) -> None:
+    def test_get(self, ident: str, el: Shema) -> None:
         with UnitOfWork(repository_type=self.__repository__) as uow:
-            result = self.__shema__.model_validate(uow.repository.get(getattr(el, attr))[0], from_attributes=True)
+            result = self.__shema__.model_validate(uow.repository.get(ident)[0], from_attributes=True)
 
             assert result == el
 
@@ -107,7 +108,14 @@ class TestWelderRepository(BaseTestRepository[WelderShema]):
             ]
     )
     def test_get(self, attr: str, index: int, welders: list[WelderShema]) -> None:
-        super().test_get(attr, welders[index])
+        welder = welders[index]
+
+        ident = getattr(welder, attr)
+
+        if isinstance(ident, UUID):
+            ident = ident.hex
+
+        super().test_get(ident, welders[index])
 
 
     @pytest.mark.usefixtures('welders')
@@ -166,7 +174,11 @@ class TestWelderCertificationRepository(BaseTestRepository[WelderCertificationSh
             [1, 2, 3, 4, 5, 6]
     )
     def test_get(self, index: int, welder_certifications: list[WelderCertificationShema]) -> None:
-        super().test_get("ident", welder_certifications[index])
+        cert = welder_certifications[index]
+
+        ident = cert.ident.hex
+
+        super().test_get(ident, welder_certifications[index])
 
 
     @pytest.mark.usefixtures('welder_certifications')
@@ -225,8 +237,11 @@ class TestNDTRepository(BaseTestRepository[NDTShema]):
             "index", [1, 7, 31, 80]
     )
     def test_get(self, index: int, ndts: list[NDTShema]) -> None:
-        with UnitOfWork(repository_type=NDTRepository) as uow:
-            super().test_get("ident", ndts[index])
+        ndt = ndts[index]
+
+        ident = ndt.ident.hex
+
+        super().test_get(ident, ndts[index])
 
 
     @pytest.mark.usefixtures('ndts')

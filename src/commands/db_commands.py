@@ -13,11 +13,7 @@ from utils.funcs import filtrate_extra_args, get_options, dicts_as_console_table
 from _types import (
     WelderData, 
     NDTData, 
-    WelderCertificationData, 
-    DataBaseRequest,
-    WelderDataBaseRequest, 
-    WelderCertificationDataBaseRequest, 
-    NDTDataBaseRequest
+    WelderCertificationData
 )
 from services.db_services import *
 from settings import Settings
@@ -169,50 +165,6 @@ class BaseGetCommand[Shema: BaseShema](Command):
             Option(["--mode"], type=Choice(["show", "json", "excel"]), default="show"),
             Option(["--file-name"], type=str, default=None)
         ]
-
-
-class BaseGetManyCommand[Shema: BaseShema](BaseGetCommand[Shema]):
-    
-    def execute[Request: DataBaseRequest](
-            self, mode: t.Literal["show", "json", "excel"], 
-            file_name: str | None, 
-            **filters: t.Unpack[Request]
-        ):
-        res = self._get_data(filters)
-
-        if not res:
-            raise GetManyCommandExeption(f"data not found")
-
-        if not file_name:
-            file_name = self._gen_file_name()
-        
-        match mode:
-            case "show":
-                self._show_result(*res)
-            case "json":
-                data = [el.model_dump(mode="json") for el in res]
-                self._save_as_json(data, file_name)
-            case "excel":
-                raise NotImplementedError
-
-    
-    def _get_data[Request: DataBaseRequest](self, filters: Request) -> list[Shema] | None:
-        service = self._init_service()
-
-        try:
-            return service.get_many(**filters)
-        except DBException as e:
-            raise GetCommandExeption(f"failed getting data\n\nDetail: {e.message}")
-        except Exception as e:
-            raise GetCommandExeption(f"something gone wrong\n\nDetail: {e.args[0]}")
-            
-    
-    @property
-    def _default_options(self) -> list[Option]:
-        return [
-            Option(["--mode"], type=Choice(["show", "json", "excel"]), default="show"),
-            Option(["--file-name"], type=str, default=None)
-        ]
         
 
 class BaseUpdateCommand[UpdateShema: BaseShema](Command):
@@ -230,6 +182,7 @@ class BaseUpdateCommand[UpdateShema: BaseShema](Command):
     def execute(self, ident: str | UUID, **data) -> None:
 
         service = self._init_service()
+        UpdateCommandExeption(ident)
         try:
             data = self.__update_shema__.model_validate(filtrate_extra_args(data))
             service.update(ident, data)
@@ -287,7 +240,7 @@ welder commands
 
 class AddWelderCommand(BaseAddCommand):
     def __init__(self) -> None:
-        options = [Option(["--ident"], type=str)] + get_options(WelderData)
+        options = get_options(WelderData)
         self.__create_shema__ = CreateWelderShema
 
         super().__init__(
@@ -304,18 +257,6 @@ class GetWelderCommand(BaseGetCommand):
     def __init__(self) -> None:
         super().__init__(
             name="get"
-        )
-
-    
-    def _init_service(self) -> WelderDBService:
-        return WelderDBService()
-
-
-class GetManyWelderCommand(BaseGetManyCommand):
-    def __init__(self) -> None:
-        super().__init__(
-            name="get-many",
-            options=get_options(WelderDataBaseRequest)
         )
 
     
@@ -355,7 +296,6 @@ def welder_commands():
 
 welder_commands.add_command(AddWelderCommand())
 welder_commands.add_command(GetWelderCommand())
-welder_commands.add_command(GetManyWelderCommand())
 welder_commands.add_command(UpdateWelderCommand())
 welder_commands.add_command(DeleteWelderCommand())
 
@@ -386,18 +326,6 @@ class GetWelderCertificationCommand(BaseGetCommand):
     def __init__(self) -> None:
         super().__init__(
             name="get"
-        )
-
-    
-    def _init_service(self) -> WelderCertificationDBService:
-        return WelderCertificationDBService()
-
-
-class GetManyWelderCertificationCommand(BaseGetManyCommand):
-    def __init__(self) -> None:
-        super().__init__(
-            name="get-many",
-            options=get_options(WelderCertificationDataBaseRequest)
         )
 
     
@@ -439,7 +367,6 @@ def welder_certification_commands():
 
 welder_certification_commands.add_command(AddWelderCertificationCommand())
 welder_certification_commands.add_command(GetWelderCertificationCommand())
-welder_certification_commands.add_command(GetManyWelderCertificationCommand())
 welder_certification_commands.add_command(UpdateWelderCertificationCommand())
 welder_certification_commands.add_command(DeleteWelderCertificationCommand())
 
@@ -470,19 +397,6 @@ class GetNDTCommand(BaseGetCommand):
         super().__init__(
             name="get"
         )
-
-    
-    def _init_service(self) -> NDTDBService:
-        return NDTDBService()
-
-
-class GetManyNDTCommand(BaseGetManyCommand):
-    def __init__(self) -> None:
-        super().__init__(
-            name="get-many",
-            options=get_options(NDTDataBaseRequest)
-        )
-
     
     def _init_service(self) -> NDTDBService:
         return NDTDBService()
@@ -520,6 +434,5 @@ def ndt_commands():
 
 ndt_commands.add_command(AddNDTCommand())
 ndt_commands.add_command(GetNDTCommand())
-ndt_commands.add_command(GetManyNDTCommand())
 ndt_commands.add_command(UpdateNDTCommand())
 ndt_commands.add_command(DeleteNDTCommand())

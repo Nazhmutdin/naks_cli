@@ -1,4 +1,5 @@
 import pytest
+from uuid import UUID
 from datetime import date
 
 from pydantic import ValidationError
@@ -21,9 +22,9 @@ class BaseTestDBService[Shema: BaseShema]:
         assert self.service.get(item.ident) == item
 
 
-    def test_get(self, attr: str, item: Shema) -> None:
+    def test_get(self, ident: str, item: Shema) -> None:
 
-        assert self.service.get(getattr(item, attr)) == item
+        assert self.service.get(ident) == item
 
 
     def test_update(self, ident: str, data: dict) -> None:
@@ -55,7 +56,6 @@ class BaseTestDBService[Shema: BaseShema]:
         self.service.add(self.__create_shema__.model_validate(item, from_attributes=True))
 
 
-
 class TestWelderDBService(BaseTestDBService[WelderShema]):
     service = WelderDBService()
     __create_shema__ = CreateWelderShema
@@ -81,7 +81,11 @@ class TestWelderDBService(BaseTestDBService[WelderShema]):
             ]
     )
     def test_get(self, attr: str, index: int, welders: list[WelderShema]) -> None:
-        super().test_get(attr, welders[index])
+        welder = welders[index]
+
+        ident = getattr(welder, attr)
+
+        super().test_get(ident, welders[index])
 
     
     @pytest.mark.parametrize(
@@ -137,7 +141,11 @@ class TestWelderCertificationDBService(BaseTestDBService[WelderCertificationShem
             [1, 7, 31, 80]
     )
     def test_get(self, index: int, welder_certifications: list[WelderCertificationShema]) -> None:
-        super().test_get("ident", welder_certifications[index])
+        cert = welder_certifications[index]
+
+        ident = cert.ident
+
+        super().test_get(ident, welder_certifications[index])
 
 
     @pytest.mark.parametrize(
@@ -194,7 +202,11 @@ class TestNDTDBService(BaseTestDBService[NDTShema]):
             [1, 7, 31, 80]
     )
     def test_get(self, index: int, ndts: list[NDTShema]) -> None:
-        super().test_get("ident", ndts[index])
+        ndt = ndts[index]
+
+        ident = ndt.ident
+        
+        super().test_get(ident, ndts[index])
 
 
     @pytest.mark.parametrize(

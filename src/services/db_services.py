@@ -1,11 +1,5 @@
 from uuid import UUID
-import typing as t
 
-from _types import (
-    WelderDataBaseRequest, 
-    WelderCertificationDataBaseRequest, 
-    NDTDataBaseRequest
-)
 from db.repositories import BaseRepository
 from utils.UoWs import UnitOfWork
 from db.repositories import *
@@ -27,6 +21,9 @@ class BaseDBService[Shema: BaseShema, CreateShema: BaseShema, UpdateShema: BaseS
 
     def get(self, ident: str | UUID) -> Shema | None:
         with self._uow as uow:
+            if isinstance(ident, UUID):
+                ident = ident.hex
+
             result = uow.repository.get(ident)
 
             if not result:
@@ -52,6 +49,10 @@ class BaseDBService[Shema: BaseShema, CreateShema: BaseShema, UpdateShema: BaseS
     def delete(self, *idents: str | UUID) -> None:
         with self._uow as uow:
             for ident in idents:
+
+                if isinstance(ident, UUID):
+                    ident = ident.hex
+                    
                 uow.repository.delete(ident)
 
             uow.commit()
@@ -66,27 +67,12 @@ class WelderDBService(BaseDBService[WelderShema, CreateWelderShema, UpdateWelder
     _uow = UnitOfWork(WelderRepository)
     __shema__ = WelderShema
 
-    
-    def get_many(self, **filters: t.Unpack[WelderDataBaseRequest]) -> list[WelderShema] | None:
-        with self._uow as uow:
-            return uow.repository.get_many(filters)
-
 
 class WelderCertificationDBService(BaseDBService[WelderCertificationShema, CreateWelderCertificationShema, UpdateWelderCertificationShema]):
     _uow = UnitOfWork(WelderCertificationRepository)
     __shema__ = WelderCertificationShema
 
-    
-    def get_many(self, **filters: t.Unpack[WelderCertificationDataBaseRequest]) -> list[WelderCertificationShema] | None:
-        with self._uow as uow:
-            return uow.repository.get_many(filters)
-
 
 class NDTDBService(BaseDBService[NDTShema, CreateNDTShema, UpdateNDTShema]):
     _uow = UnitOfWork(NDTRepository)
     __shema__ = NDTShema
-
-    
-    def get_many(self, **filters: t.Unpack[NDTDataBaseRequest]) -> list[NDTShema] | None:
-        with self._uow as uow:
-            return uow.repository.get_many(filters)

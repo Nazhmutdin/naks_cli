@@ -36,7 +36,11 @@ class TestWelderCommands:
 
         for welder in welders:
 
-            args = from_dict_to_cmd_args(welder.model_dump())
+            data = welder.model_dump()
+
+            del data["ident"]
+
+            args = from_dict_to_cmd_args(data)
  
             ctx = AddWelderCommand().make_context(
                 info_name="add-welder", 
@@ -70,7 +74,7 @@ class TestWelderCommands:
         "ident, data",
         [
             ("01X0", {"name": "ADADrf vvtt", "birthday": "1990-10-11"}),
-            ("9090ae6f534141669b34e7019bbcf285", {"passport_number": "Y5562554", "sicil": "255614"}),
+            ("12VV", {"passport_number": "Y5562554", "sicil": "255614"}),
             ("0576", {"nation": "RUS", "status": 0})
         ]
     )
@@ -89,7 +93,7 @@ class TestWelderCommands:
 
 
     @pytest.mark.parametrize(
-            "ident", ["06PV","04LC","d0543b8fb17c4a17b32921dae2606c0e"]
+            "ident", ["06PV","04LC","12VV"]
     )
     def test_delete_welder_command(self, ident: str) -> None:
         service = WelderDBService()
