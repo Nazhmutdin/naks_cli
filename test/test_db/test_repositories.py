@@ -18,8 +18,9 @@ Welder repository
 
 @pytest.mark.usefixtures("prepare_db")
 class BaseTestRepository[Shema: BaseShema]:
-    __create_shema__: type[BaseShema]
-    __update_shema__: type[BaseShema]
+    __shema__: type[Shema]
+    __create_shema__: type[Shema]
+    __update_shema__: type[Shema]
     __repository__: type[BaseRepository]
 
 
@@ -27,7 +28,8 @@ class BaseTestRepository[Shema: BaseShema]:
         with UnitOfWork(repository_type=self.__repository__) as uow:
             for el in data:
                 uow.repository.add(self.__create_shema__.model_validate(el, from_attributes=True).model_dump())
-                assert uow.repository.get(el.ident) == el
+                result = self.__shema__.model_validate(uow.repository.get(el.ident.hex)[0], from_attributes=True)
+                assert result == el
 
             assert uow.repository.count() == len(data)
 
@@ -36,13 +38,9 @@ class BaseTestRepository[Shema: BaseShema]:
     
     def test_get(self, attr: str, el: Shema) -> None:
         with UnitOfWork(repository_type=self.__repository__) as uow:
+            result = self.__shema__.model_validate(uow.repository.get(getattr(el, attr))[0], from_attributes=True)
 
-            assert uow.repository.get(getattr(el, attr)) == el
-
-
-    def test_res_type(self, ident: int | str, expectation: type[Shema]) -> None:
-        with UnitOfWork(repository_type=self.__repository__) as uow:
-            assert type(uow.repository.get(ident)) == expectation
+            assert result == el
 
 
     def test_add_existing(self, data: Shema) -> None:
@@ -55,14 +53,14 @@ class BaseTestRepository[Shema: BaseShema]:
         with UnitOfWork(repository_type=self.__repository__) as uow:
 
             uow.repository.update(ident, data)
-            el = uow.repository.get(ident)
+            result = self.__shema__.model_validate(uow.repository.get(ident)[0], from_attributes=True)
 
             for key, value in data.items():
-                if isinstance(getattr(el, key), date):
-                    assert getattr(el, key) == to_date(value, False)
+                if isinstance(getattr(result, key), date):
+                    assert getattr(result, key) == to_date(value, False)
                     continue
 
-                assert getattr(el, key) == value
+                assert getattr(result, key) == value
 
             uow.commit()
 
@@ -70,9 +68,9 @@ class BaseTestRepository[Shema: BaseShema]:
     def test_delete(self, item: Shema) -> None:
         with UnitOfWork(repository_type=self.__repository__) as uow:
 
-            uow.repository.delete(item.ident)
+            uow.repository.delete(item.ident.hex)
 
-            assert not bool(uow.repository.get(item.ident))
+            assert not bool(uow.repository.get(item.ident.hex))
 
             uow.repository.add(self.__create_shema__.model_validate(item, from_attributes=True).model_dump())
             uow.commit()
@@ -88,6 +86,7 @@ Welder repository
 
 @pytest.mark.run(order=1)
 class TestWelderRepository(BaseTestRepository[WelderShema]):
+    __shema__ = WelderShema
     __create_shema__ = CreateWelderShema
     __update_shema__ = UpdateWelderShema
     __repository__ = WelderRepository
@@ -109,18 +108,6 @@ class TestWelderRepository(BaseTestRepository[WelderShema]):
     )
     def test_get(self, attr: str, index: int, welders: list[WelderShema]) -> None:
         super().test_get(attr, welders[index])
-
-
-    @pytest.mark.parametrize(
-            "ident, expectation",
-            [
-                ("1M65", WelderShema),
-                ("1E41", WelderShema),
-                ("1HC0", WelderShema),
-            ]
-    )
-    def test_res_type(self, ident: int | str, expectation: type[WelderShema]) -> None:
-        super().test_res_type(ident, expectation)
 
 
     @pytest.mark.usefixtures('welders')
@@ -162,6 +149,7 @@ Welder certification repository
 
 @pytest.mark.run(order=2)
 class TestWelderCertificationRepository(BaseTestRepository[WelderCertificationShema]):
+    __shema__ = WelderCertificationShema
     __create_shema__ = CreateWelderCertificationShema
     __update_shema__ = UpdateWelderCertificationShema
     __repository__ = WelderCertificationRepository
@@ -179,18 +167,6 @@ class TestWelderCertificationRepository(BaseTestRepository[WelderCertificationSh
     )
     def test_get(self, index: int, welder_certifications: list[WelderCertificationShema]) -> None:
         super().test_get("ident", welder_certifications[index])
-
-
-    @pytest.mark.parametrize(
-            "ident, expectation",
-            [
-                ("46a9381ae8cb4143958152bf25c30fbe", WelderCertificationShema),
-                ("10c58804bc7c4bfdb24bceba51334f00", WelderCertificationShema),
-                ("11d0248261db4f6ca236f194087daeca", WelderCertificationShema),
-            ]
-    )
-    def test_res_type(self, ident: int | str, expectation: WelderCertificationShema | None) -> None:
-        super().test_res_type(ident, expectation)
 
 
     @pytest.mark.usefixtures('welder_certifications')
@@ -233,6 +209,7 @@ NDT repository
 
 @pytest.mark.run(order=3)
 class TestNDTRepository(BaseTestRepository[NDTShema]):
+    __shema__ = NDTShema
     __create_shema__ = CreateNDTShema
     __update_shema__ = UpdateNDTShema
     __repository__ = NDTRepository
@@ -250,18 +227,6 @@ class TestNDTRepository(BaseTestRepository[NDTShema]):
     def test_get(self, index: int, ndts: list[NDTShema]) -> None:
         with UnitOfWork(repository_type=NDTRepository) as uow:
             super().test_get("ident", ndts[index])
-
-
-    @pytest.mark.parametrize(
-        "ident, expectation", 
-            [
-                ("bb380cb216fb4505aa0d78a1b6b7abc4", NDTShema),
-                ("b5636169bc624eeb9a4b61c1bdb059b5", NDTShema),
-                ("f0f0ba353ebf4fd39924afbccad0a24b", NDTShema),
-            ]
-    )
-    def test_res_type(self, ident: int | str, expectation) -> None:
-        super().test_res_type(ident, expectation)
 
 
     @pytest.mark.usefixtures('ndts')

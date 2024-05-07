@@ -2,6 +2,7 @@ import typing as t
 from sqlalchemy import (
     Select, 
     Insert,
+    Row,
     Update,
     Delete,
     BinaryExpression, 
@@ -46,23 +47,19 @@ Base repository
 
 class BaseRepository[Shema: BaseShema](ABC):
     __model__: type[Base]
-    __shema__: type[Shema]
 
 
     def __init__(self, session: Session) -> None:
         self._session = session
 
 
-    def get(self, ident: UUID | str) -> Shema | None:
+    def get(self, ident: str) -> Row | None:
         try:
             stmt = self._dump_get_stmt(ident)
             response = self._session.execute(stmt)
             result = response.one_or_none()
 
-            if not result:
-                return None
-
-            return self.__shema__.model_validate(result[0], from_attributes=True)
+            return result
 
         except IntegrityError as e:
             raise DBException(e.args[0])
@@ -79,7 +76,7 @@ class BaseRepository[Shema: BaseShema](ABC):
             raise DBException(e.args[0])
 
 
-    def update(self, ident: UUID | str, data: dict[str, t.Any]) -> None:
+    def update(self, ident: str, data: dict[str, t.Any]) -> None:
         try:
             stmt = self._dump_update_stmt(ident, data)
             self._session.execute(stmt)
@@ -87,7 +84,7 @@ class BaseRepository[Shema: BaseShema](ABC):
             raise DBException(e.args[0])
 
 
-    def delete(self, ident: UUID | str) -> None:
+    def delete(self, ident: str) -> None:
         try:
             stmt = self._dump_delete_stmt(ident)
             self._session.execute(stmt)
@@ -165,12 +162,17 @@ class WelderRepository(BaseRepository[WelderShema]):
         if filters.get("offset"):
             stmt = stmt.offset(filters.get("offset"))
 
-        return [WelderShema.model_validate(welder[0], from_attributes=True) for welder in self._session.execute(stmt).all()]
+        result = self._session.execute(stmt).all()
+
+        return result
     
 
     def _get_column(self, ident: str | UUID) -> InstrumentedAttribute:
+        if isinstance(ident, UUID):
+            return WelderModel.ident
+        
         try:
-            ident = UUID(ident)
+            ident = UUID(ident, version=4)
             return WelderModel.ident
         except:
             return WelderModel.kleymo

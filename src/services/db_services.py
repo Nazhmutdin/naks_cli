@@ -22,11 +22,17 @@ __all__: list[str] = [
 
 class BaseDBService[Shema: BaseShema, CreateShema: BaseShema, UpdateShema: BaseShema]:
     _uow: UnitOfWork[BaseRepository[Shema]]
+    __shema__: type[Shema]
 
 
     def get(self, ident: str | UUID) -> Shema | None:
         with self._uow as uow:
-            return uow.repository.get(ident)
+            result = uow.repository.get(ident)
+
+            if not result:
+                return None
+
+            return self.__shema__.model_validate(result[0], from_attributes=True)
 
 
     def add(self, *data: CreateShema) -> None:
@@ -58,6 +64,7 @@ class BaseDBService[Shema: BaseShema, CreateShema: BaseShema, UpdateShema: BaseS
 
 class WelderDBService(BaseDBService[WelderShema, CreateWelderShema, UpdateWelderShema]):
     _uow = UnitOfWork(WelderRepository)
+    __shema__ = WelderShema
 
     
     def get_many(self, **filters: t.Unpack[WelderDataBaseRequest]) -> list[WelderShema] | None:
@@ -67,6 +74,7 @@ class WelderDBService(BaseDBService[WelderShema, CreateWelderShema, UpdateWelder
 
 class WelderCertificationDBService(BaseDBService[WelderCertificationShema, CreateWelderCertificationShema, UpdateWelderCertificationShema]):
     _uow = UnitOfWork(WelderCertificationRepository)
+    __shema__ = WelderCertificationShema
 
     
     def get_many(self, **filters: t.Unpack[WelderCertificationDataBaseRequest]) -> list[WelderCertificationShema] | None:
@@ -76,6 +84,7 @@ class WelderCertificationDBService(BaseDBService[WelderCertificationShema, Creat
 
 class NDTDBService(BaseDBService[NDTShema, CreateNDTShema, UpdateNDTShema]):
     _uow = UnitOfWork(NDTRepository)
+    __shema__ = NDTShema
 
     
     def get_many(self, **filters: t.Unpack[NDTDataBaseRequest]) -> list[NDTShema] | None:
