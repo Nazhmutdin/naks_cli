@@ -9,6 +9,6 @@ class BaseNaksParser(ABC):
     def parse(self, *search_values) -> BaseParseResult: ... 
 
 
-class BaseNaksParser(BaseNaksParser):
+class PersonalNaksParser(BaseNaksParser):
 
     def parse(self, *search_values) -> ParsePersonalResult: ... 

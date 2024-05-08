@@ -77,6 +77,7 @@ def to_date(date_data: str | date | t.Iterable[int] | None, dayfirst: bool = Fal
     
     if isinstance(date_data, str):
         _datetime = str_to_datetime(date_data, dayfirst)
+        
         if not _datetime:
             raise InvalidDateException(f"Invalid date data '{date_data}'")
 

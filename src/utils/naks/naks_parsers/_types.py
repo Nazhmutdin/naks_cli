@@ -1,4 +1,8 @@
-from pydantic import BaseModel, Field
+from datetime import date
+
+from pydantic import BaseModel, Field, field_validator
+
+from utils.funcs import to_date
 
 
 
@@ -16,12 +20,23 @@ class PersonalMainPageData(BaseModel):
     job_title: str
     certification_number: str
     insert: str | None = Field(default=None)
-    certification_date: str
-    expiration_date: str
-    expiration_date_fact: str
+    certification_date: date
+    expiration_date: date
+    expiration_date_fact: date
     method: str | None = Field(default=None)
     additional_page_id: str
 
+
+    @field_validator("certification_date", "expiration_date", "expiration_date_fact", mode="before")
+    @classmethod
+    def validate_date_fields(cls, v: str | date | None) -> date:
+        date_value = to_date(v)
+
+        if not date_value:
+            raise ValueError(f"invalid date data: {v}")
+        
+        return date_value
+        
 
 class PersonalAdditionalPageData(BaseModel):
     certification_type: str | None = Field(default=None)
