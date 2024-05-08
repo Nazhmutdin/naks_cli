@@ -40,9 +40,21 @@ def get_welder_certifications() -> list[WelderCertificationShema]:
     return [WelderCertificationShema.model_validate(certification) for certification in certifications]
 
 
-def get_welder_ndts() -> list[NDTShema]:
-    ndts = json.load(open("test/test_data/welder_ndts.json", "r", encoding="utf-8"))
+def get_ndts() -> list[NDTShema]:
+    ndts = json.load(open("test/test_data/ndts.json", "r", encoding="utf-8"))
     return [NDTShema.model_validate(ndt) for ndt in ndts]
+
+
+def get_invalid_welders() -> list[dict[str, t.Any]]:
+    return json.load(open("test/test_data/invalid_welders.json", "r", encoding="utf-8"))
+
+
+def get_invalid_welder_certifications() -> list[dict[str, t.Any]]:
+    return json.load(open("test/test_data/invalid_welder_certifications.json", "r", encoding="utf-8"))
+
+
+def get_invalid_ndts() -> list[dict[str, t.Any]]:
+    return json.load(open("test/test_data/invalid_ndts.json", "r", encoding="utf-8"))
 
 
 # def get_users() -> list[UserShema]:
@@ -62,7 +74,22 @@ def welder_certifications() -> list[WelderCertificationShema]:
 
 @pytest.fixture
 def ndts() -> list[NDTShema]:
-    return get_welder_ndts()
+    return get_ndts()
+
+
+@pytest.fixture
+def invalid_welders() -> list[dict[str, t.Any]]:
+    return get_invalid_welders()
+
+
+@pytest.fixture
+def invalid_welder_certifications() -> list[dict[str, t.Any]]:
+    return get_invalid_welder_certifications()
+
+
+@pytest.fixture
+def invalid_ndts() -> list[dict[str, t.Any]]:
+    return get_invalid_ndts()
 
 # @pytest.fixture
 # def users() -> list[UserShema]:

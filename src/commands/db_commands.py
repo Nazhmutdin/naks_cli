@@ -62,10 +62,10 @@ class BaseAddCommand[CreateShema: BaseShema](Command):
                 data = self._read_data_from_file(from_file)
                 
                 if isinstance(data, list):
-                    service.add(*[self.__create_shema__.model_validate(item) for item in data])
+                    service.add(*[item for item in data])
 
                 if isinstance(data, dict):
-                    service.add(self.__create_shema__.model_validate(data))
+                    service.add(data)
                     
             else:
                 service.add(self.__create_shema__.model_validate(filtrate_extra_args(data)))
@@ -184,7 +184,7 @@ class BaseUpdateCommand[UpdateShema: BaseShema](Command):
         service = self._init_service()
         UpdateCommandExeption(ident)
         try:
-            data = self.__update_shema__.model_validate(filtrate_extra_args(data))
+            data = filtrate_extra_args(data)
             service.update(ident, data)
         except ValidationError as e:
             raise UpdateCommandExeption(f"data validation failed\n\nDetail: {e.title}")

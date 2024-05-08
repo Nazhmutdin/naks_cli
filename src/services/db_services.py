@@ -1,4 +1,5 @@
 from uuid import UUID
+import typing as t
 
 from db.repositories import BaseRepository
 from utils.UoWs import UnitOfWork
@@ -15,8 +16,10 @@ __all__: list[str] = [
 
 
 class BaseDBService[Shema: BaseShema, CreateShema: BaseShema, UpdateShema: BaseShema]:
-    _uow: UnitOfWork[BaseRepository[Shema]]
     __shema__: type[Shema]
+    __create_shema__: type[CreateShema]
+    __update_shema__: type[UpdateShema]
+    _uow: UnitOfWork[BaseRepository]
 
 
     def get(self, ident: str | UUID) -> Shema | None:
@@ -32,17 +35,24 @@ class BaseDBService[Shema: BaseShema, CreateShema: BaseShema, UpdateShema: BaseS
             return self.__shema__.model_validate(result[0], from_attributes=True)
 
 
-    def add(self, *data: CreateShema) -> None:
+    def add(self, *data: dict[str, t.Any]) -> None:
         with self._uow as uow:
-            for item in data:
-                uow.repository.add(item.model_dump())
+            uow.repository.add(
+                *[
+                    self.__create_shema__.model_validate(item, from_attributes=True).model_dump() for item in data
+                ]
+            )
 
             uow.commit()
 
 
-    def update(self, ident: str | UUID, data: UpdateShema) -> None:
+    def update(self, ident: str | UUID, data: dict[str, t.Any]) -> None:
         with self._uow as uow:
-            uow.repository.update(ident, data.model_dump(exclude_unset=True))
+            uow.repository.update(
+                ident, 
+                self.__update_shema__.model_validate(data).model_dump(exclude_unset=True)
+            )
+
             uow.commit()
 
 
@@ -65,14 +75,20 @@ class BaseDBService[Shema: BaseShema, CreateShema: BaseShema, UpdateShema: BaseS
 
 class WelderDBService(BaseDBService[WelderShema, CreateWelderShema, UpdateWelderShema]):
     _uow = UnitOfWork(WelderRepository)
+    __create_shema__ = CreateWelderShema
+    __update_shema__ = UpdateWelderShema
     __shema__ = WelderShema
 
 
 class WelderCertificationDBService(BaseDBService[WelderCertificationShema, CreateWelderCertificationShema, UpdateWelderCertificationShema]):
     _uow = UnitOfWork(WelderCertificationRepository)
+    __create_shema__ = CreateWelderCertificationShema
+    __update_shema__ = UpdateWelderCertificationShema
     __shema__ = WelderCertificationShema
 
 
 class NDTDBService(BaseDBService[NDTShema, CreateNDTShema, UpdateNDTShema]):
     _uow = UnitOfWork(NDTRepository)
+    __create_shema__ = CreateNDTShema
+    __update_shema__ = UpdateNDTShema
     __shema__ = NDTShema

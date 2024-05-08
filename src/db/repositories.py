@@ -43,7 +43,7 @@ Base repository
 """
 
 
-class BaseRepository[Shema: BaseShema](ABC):
+class BaseRepository(ABC):
     __model__: type[Base]
 
 
@@ -63,7 +63,7 @@ class BaseRepository[Shema: BaseShema](ABC):
             raise DBException(e.args[0])
 
 
-    def add(self, data: dict[str, t.Any]) -> None:
+    def add(self, *data: dict[str, t.Any]) -> None:
         try:
             stmt = self._dump_add_stmt(data)
             self._session.execute(stmt)
@@ -101,9 +101,9 @@ class BaseRepository[Shema: BaseShema](ABC):
         return inspect(self.__model__).primary_key[0]
     
 
-    def _dump_add_stmt(self, data: dict[str, t.Any]) -> Insert:
+    def _dump_add_stmt(self, data: tuple[dict[str, t.Any]]) -> Insert:
         return insert(self.__model__).values(
-            **data
+            list(data)
         )
     
 
@@ -134,8 +134,7 @@ Welder repository
 """
 
 
-class WelderRepository(BaseRepository[WelderShema]):
-    __shema__ = WelderShema
+class WelderRepository(BaseRepository):
     __model__ = WelderModel
     
 
@@ -154,8 +153,7 @@ Welder certification repository
 """
 
 
-class WelderCertificationRepository(BaseRepository[WelderCertificationShema]):
-    __shema__ = WelderCertificationShema
+class WelderCertificationRepository(BaseRepository):
     __model__ = WelderCertificationModel
 
 
@@ -166,6 +164,5 @@ NDT repository
 """
 
 
-class NDTRepository(BaseRepository[NDTShema]):
-    __shema__ = NDTShema
+class NDTRepository(BaseRepository):
     __model__ = NDTModel

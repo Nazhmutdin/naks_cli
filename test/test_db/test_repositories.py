@@ -3,6 +3,8 @@ import typing as t
 from uuid import UUID
 from datetime import date
 
+from pydantic import ValidationError
+
 from utils.funcs import to_date
 from utils.UoWs import UnitOfWork
 from errors import DBException
@@ -20,15 +22,17 @@ Welder repository
 @pytest.mark.usefixtures("prepare_db")
 class BaseTestRepository[Shema: BaseShema]:
     __shema__: type[Shema]
-    __create_shema__: type[Shema]
-    __update_shema__: type[Shema]
     __repository__: type[BaseRepository]
 
 
     def test_add(self, data: list[Shema]) -> None:
         with UnitOfWork(repository_type=self.__repository__) as uow:
+            insert_data = [
+                el.model_dump() for el in data
+            ]
+            uow.repository.add(*insert_data)
+
             for el in data:
-                uow.repository.add(self.__create_shema__.model_validate(el, from_attributes=True).model_dump())
                 result = self.__shema__.model_validate(uow.repository.get(el.ident.hex)[0], from_attributes=True)
                 assert result == el
 
@@ -47,7 +51,7 @@ class BaseTestRepository[Shema: BaseShema]:
     def test_add_existing(self, data: Shema) -> None:
         with UnitOfWork(repository_type=self.__repository__) as uow:
             with pytest.raises(DBException):
-                uow.repository.add(self.__create_shema__.model_validate(data, from_attributes=True).model_dump())
+                uow.repository.add(data.model_dump())
 
 
     def test_update(self, ident: str, data: dict[str, t.Any]) -> None:
@@ -73,7 +77,7 @@ class BaseTestRepository[Shema: BaseShema]:
 
             assert not bool(uow.repository.get(item.ident.hex))
 
-            uow.repository.add(self.__create_shema__.model_validate(item, from_attributes=True).model_dump())
+            uow.repository.add(item.model_dump())
             uow.commit()
 
 
@@ -88,9 +92,8 @@ Welder repository
 @pytest.mark.run(order=1)
 class TestWelderRepository(BaseTestRepository[WelderShema]):
     __shema__ = WelderShema
-    __create_shema__ = CreateWelderShema
-    __update_shema__ = UpdateWelderShema
     __repository__ = WelderRepository
+
 
     @pytest.mark.usefixtures('welders')
     def test_add(self, welders: list[WelderShema]) -> None:
@@ -158,8 +161,6 @@ Welder certification repository
 @pytest.mark.run(order=2)
 class TestWelderCertificationRepository(BaseTestRepository[WelderCertificationShema]):
     __shema__ = WelderCertificationShema
-    __create_shema__ = CreateWelderCertificationShema
-    __update_shema__ = UpdateWelderCertificationShema
     __repository__ = WelderCertificationRepository
 
 
@@ -222,8 +223,6 @@ NDT repository
 @pytest.mark.run(order=3)
 class TestNDTRepository(BaseTestRepository[NDTShema]):
     __shema__ = NDTShema
-    __create_shema__ = CreateNDTShema
-    __update_shema__ = UpdateNDTShema
     __repository__ = NDTRepository
 
 

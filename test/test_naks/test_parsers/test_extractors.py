@@ -20,7 +20,6 @@ class TestPersonalNaksExtractor:
         page = http_worker.get_main_page(search_value)
 
         result = extractor.parse_main_page(page.text)
-        print(result)
 
         assert len(result) == len(personal_main_page_data[search_value])
 

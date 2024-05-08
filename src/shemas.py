@@ -6,7 +6,6 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from utils.funcs import to_date
-from errors import FieldValidationException
 
 
 __all__: list[str] = [
@@ -106,7 +105,7 @@ class WelderShema(BaseWelderShema):
     @classmethod
     def validate_kleymo(cls, v: str | int | None):
         if not v:
-            raise FieldValidationException(f"kleymo cannot be nullable")
+            raise ValueError(f"kleymo cannot be nullable")
         
         if isinstance(v, int):
             v = str(v)
@@ -114,7 +113,7 @@ class WelderShema(BaseWelderShema):
         if fullmatch(r"[A-Z0-9]{4}", v.strip()):
             return v
         
-        raise FieldValidationException(f"Invalid kleymo: {v}")
+        raise ValueError(f"Invalid kleymo: {v}")
     
 
     @field_validator("birthday")
@@ -154,7 +153,7 @@ class UpdateWelderShema(BaseWelderShema):
         if fullmatch(r"[A-Z0-9]{4}", v.strip()):
             return v
         
-        raise FieldValidationException(f"Invalid kleymo: {v}")
+        raise ValueError(f"Invalid kleymo: {v}")
     
 
     @field_validator("birthday", mode="before")
@@ -230,7 +229,7 @@ class WelderCertificationShema(BaseWelderCertificationShema):
     @classmethod
     def validate_kleymo(cls, v: str | int | None):
         if not v:
-            return FieldValidationException(f"kleymo is required")
+            return ValueError(f"kleymo is required")
         
         if isinstance(v, int):
             v = str(v)
@@ -238,20 +237,19 @@ class WelderCertificationShema(BaseWelderCertificationShema):
         if fullmatch(r"[A-Z0-9]{4}", v.strip()):
             return v
         
-        raise FieldValidationException(f"Invalid kleymo: {v}")
+        raise ValueError(f"Invalid kleymo: {v}")
     
     
     @field_validator("certification_date", "expiration_date", "expiration_date_fact", mode="before")
     @classmethod
     def validate_date(cls, v: str | tuple[int, int, int] | None):
         if not v:
-            raise FieldValidationException(f"Invalid date data '{v}'")
+            raise ValueError(f"Invalid date data '{v}'")
         
         try:
             return to_date(v)
         except:
-            raise FieldValidationException(f"Invalid date data '{v}'")
-
+            raise ValueError(f"Invalid date data '{v}'")
 
 
 class CreateWelderCertificationShema(WelderCertificationShema): ...
@@ -271,7 +269,7 @@ class UpdateWelderCertificationShema(BaseWelderCertificationShema):
         if fullmatch(r"[A-Z0-9]{4}", v.strip()):
             return v
         
-        raise FieldValidationException(f"Invalid kleymo: {v}")
+        raise ValueError(f"Invalid kleymo: {v}")
     
     
     @field_validator("certification_date", "expiration_date", "expiration_date_fact", mode="before")
@@ -280,7 +278,7 @@ class UpdateWelderCertificationShema(BaseWelderCertificationShema):
         try:
             return to_date(v)
         except:
-            raise FieldValidationException(f"Invalid date data '{v}'")
+            raise ValueError(f"Invalid date data '{v}'")
 
 
 """
@@ -332,12 +330,12 @@ class NDTShema(BaseNDTShema):
     @field_validator("welding_date", mode="before")
     def validate_welding_date(cls, v: str | tuple[int, int, int] | None):
         if not v:
-            raise FieldValidationException(f"Invalid date data '{v}'")
+            raise ValueError(f"Invalid date data '{v}'")
         
         try:
             return to_date(v)
         except:
-            raise FieldValidationException(f"Invalid date data '{v}'")
+            raise ValueError(f"Invalid date data '{v}'")
 
 
     @field_validator("kleymo")
@@ -346,7 +344,7 @@ class NDTShema(BaseNDTShema):
             v = str(v)
 
         if not fullmatch(r"[A-Z0-9]{4}", str(v).strip()) or v == None:
-            raise FieldValidationException(f"Invalid kleymo ===> {v}")
+            raise ValueError(f"Invalid kleymo ===> {v}")
         
         return str(v).strip()
 
@@ -361,16 +359,19 @@ class UpdateNDTShema(BaseNDTShema):
         try:
             return to_date(v)
         except:
-            raise FieldValidationException(f"Invalid date data '{v}'")
+            raise ValueError(f"Invalid date data '{v}'")
 
 
     @field_validator("kleymo")
-    def validate_kleymo(cls, v: str | int) -> str:
+    def validate_kleymo(cls, v: str | int | None) -> str:
+        if v == None:
+            return None
+        
         if isinstance(v, int):
             v = str(v)
 
         if not fullmatch(r"[A-Z0-9]{4}", str(v).strip()) or v == None:
-            raise FieldValidationException(f"Invalid kleymo ===> {v}")
+            raise ValueError(f"Invalid kleymo ===> {v}")
         
         return str(v).strip()
 

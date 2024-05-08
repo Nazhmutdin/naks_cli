@@ -17,13 +17,16 @@ class BaseTestDBService[Shema: BaseShema]:
     __update_shema__: type[BaseShema]
 
 
-    def test_add(self, item: Shema) -> None:
-        self.service.add(self.__create_shema__.model_validate(item, from_attributes=True))
-        assert self.service.get(item.ident) == item
+    def test_add(self, items: list[Shema]) -> None:
+        self.service.add(
+            *[self.__create_shema__.model_validate(item, from_attributes=True) for item in items]
+        )
+        
+        for item in items:
+            assert self.service.get(item.ident) == item
 
 
     def test_get(self, ident: str, item: Shema) -> None:
-
         assert self.service.get(ident) == item
 
 
@@ -64,8 +67,7 @@ class TestWelderDBService(BaseTestDBService[WelderShema]):
 
     @pytest.mark.usefixtures('welders')
     def test_add(self, welders: list[WelderShema]) -> None:
-        for welder in welders:
-            super().test_add(welder)
+        super().test_add(welders)
 
         assert self.service.count() == 100
 
@@ -104,7 +106,7 @@ class TestWelderDBService(BaseTestDBService[WelderShema]):
     @pytest.mark.parametrize(
             "ident, data, exception",
             [
-                ("095898d1419641b3adf45af287aad3e7", {"kleymo": "aaa"}, FieldValidationException),
+                ("095898d1419641b3adf45af287aad3e7", {"kleymo": "aaa"}, ValidationError),
                 ("9c66aab293244178bb63e579b43474d4", {"name": 111}, ValidationError),
             ]
     )
@@ -129,8 +131,7 @@ class TestWelderCertificationDBService(BaseTestDBService[WelderCertificationShem
 
     @pytest.mark.usefixtures('welder_certifications')
     def test_add(self, welder_certifications: list[WelderCertificationShema]) -> None:
-        for certification in welder_certifications:
-            super().test_add(certification)
+        super().test_add(welder_certifications)
 
         assert self.service.count() == len(welder_certifications)
 
@@ -164,9 +165,9 @@ class TestWelderCertificationDBService(BaseTestDBService[WelderCertificationShem
     @pytest.mark.parametrize(
             "ident, data, exception",
             [
-                ("65ea5301573b4e8e8c114c4385a2a5a8", {"certification_date": "dsdsds"}, FieldValidationException),
-                ("1840a50837784bf9bbf1b282c1fcfb49", {"expiration_date": "T15563212"}, FieldValidationException),
-                ("06beeb64be754167a251e7f756a1d2be", {"expiration_date_fact": "RUS"}, FieldValidationException),
+                ("65ea5301573b4e8e8c114c4385a2a5a8", {"certification_date": "dsdsds"}, ValidationError),
+                ("1840a50837784bf9bbf1b282c1fcfb49", {"expiration_date": "T15563212"}, ValidationError),
+                ("06beeb64be754167a251e7f756a1d2be", {"expiration_date_fact": "RUS"}, ValidationError),
             ]
     )
     def test_fail_update(self, ident: str, data: dict, exception) -> None:
@@ -190,8 +191,7 @@ class TestNDTDBService(BaseTestDBService[NDTShema]):
 
     @pytest.mark.usefixtures('ndts')
     def test_add(self, ndts: list[NDTShema]) -> None:
-        for ndt in ndts:
-            super().test_add(ndt)
+        super().test_add(ndts)
 
         assert self.service.count() == len(ndts)
 
@@ -224,7 +224,7 @@ class TestNDTDBService(BaseTestDBService[NDTShema]):
     @pytest.mark.parametrize(
             "ident, data, exception",
             [
-                ("45c040e0a78e4a3994b6cc12d3ba3d81", {"welding_date": "dsdsds"}, FieldValidationException),
+                ("45c040e0a78e4a3994b6cc12d3ba3d81", {"welding_date": "dsdsds"}, ValidationError),
             ]
     )
     def test_fail_update(self, ident: str, data: dict, exception) -> None:
