@@ -112,9 +112,9 @@ class PersonalAdditionalPageData(BaseAdditionalPageData):
         return result
 
 
-    def model_dump(self):
+    def model_dump(self, mode: str = "python"):
 
-        data = super().model_dump()
+        data = super().model_dump(mode=mode)
 
         data["detail_thikness_from"] = get_from_value_or_none(self.detail_thikness_string)
 
