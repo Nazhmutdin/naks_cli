@@ -1,13 +1,14 @@
 from datetime import datetime, date
 from dateutil.parser import parser
 from ast import literal_eval
-from json import dump
+from json import dump, load
 import typing as t
 
 from click import ClickException, Option
 from rich.table import Table
 
 from errors import InvalidDateException
+from settings import Settings
 
 
 __all__ = [
@@ -115,6 +116,15 @@ def dicts_as_console_table[Shema: IShortDumpShema](*args: Shema) -> Table:
         table.add_row(*row_data, style="blue")
 
     return table
+
+
+def read_gtd_data_json() -> dict[str, dict[str, str | dict]]:
+    return load(open(f"{Settings.BASE_DIR()}/static/data/gtd_data.json", "r", encoding="utf-8"))
+
+
+def get_gtd_description_short_dict(gtd_data: dict[str, dict[str, str | dict]] = read_gtd_data_json()) -> dict[str, str]:
+
+    return {value["description"]: key  for key, value in gtd_data.items()}
 
 
 def func_name_decorator(func_name: str):

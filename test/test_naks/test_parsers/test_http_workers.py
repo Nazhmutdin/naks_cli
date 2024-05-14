@@ -1,7 +1,7 @@
 import pytest
 from lxml import html
 
-from utils.naks.naks_parsers.http_workers import PersonalNaksHTTPWorker
+from utils.naks.parsers.http_workers import PersonalNaksHTTPWorker
 
 
 class TestPersonalNaksHTTPWorker:

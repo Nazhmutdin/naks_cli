@@ -1,23 +1,25 @@
-import typing as t
 from abc import ABC, abstractmethod
 from re import search
 
 from lxml import html
 
-from utils.naks.naks_parsers._types import PersonalMainPageData, PersonalAdditionalPageData
+from utils.naks.parsers._types import *
 
 
-type NaksTableRow = html.HtmlElement
+__all__ = [
+    "BaseNaksExtractor",
+    "PersonalNaksExtractor"
+]
 
 
 class BaseNaksExtractor(ABC):
 
     @abstractmethod
-    def parse_main_page(self, main_page: str) -> t.Any: ...
+    def parse_main_page(self, main_page: str) -> list[BaseMainPageData]: ...
 
 
     @abstractmethod
-    def parse_additional_page(self, additional_page: str) -> t.Any: ...
+    def parse_additional_page(self, additional_page: str) -> BaseAdditionalPageData: ...
     
 
     def _get_additional_page_id(self, tr_tree: html.HtmlElement) -> str:
@@ -73,7 +75,24 @@ class PersonalNaksExtractor(BaseNaksExtractor):
         return result
 
 
-    def parse_additional_page(self, additional_page: str) -> PersonalAdditionalPageData: ...
+    def parse_additional_page(self, additional_page: str) -> PersonalAdditionalPageData:
+        tree = self._get_tree(additional_page)
+        result = {}
+
+        for tr in tree.xpath("//tr"):
+            tr_tree = self._get_tree(self._to_string(tr))
+
+            tds = tr_tree.xpath("//td")
+
+            if len(tds) < 2:
+                continue
+
+            key = tds[0].text.strip()
+            value = " | ".join(td.text_content().strip() for td in tds[1:])
+
+            result[key] = value
+
+        return PersonalAdditionalPageData.model_validate(result)
 
     
     def _get_name(self, tr_tree: html.HtmlElement) -> str:

@@ -44,7 +44,7 @@ class Settings:
         if cls.MODE() == "TEST":
             return Path.cwd()
         
-        return Path.cwd().parent
+        return Path.cwd()
 
 
     @classmethod

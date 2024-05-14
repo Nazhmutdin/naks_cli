@@ -71,11 +71,12 @@ class PersonalNaksHTTPWorker:
             return "name"
 
 
-    def _get_request_data(self, search_value: str) -> str:
+    def _get_request_data(self, search_value: str, page: int = 1) -> str:
         value_type = self._detect_search_value_type(search_value)
-        base_data = "arrFilter_pf%5Bap%5D=&arrFilter_ff%5BNAME%5D={name}&arrFilter_pf%5Bshifr_ac%5D={cert_abbr}&arrFilter_pf%5Buroven_ac%5D={cert_lvl}&arrFilter_pf%5Bnum_ac%5D={cert_number}&arrFilter_ff%5BCODE%5D={kleymo}&arrFilter_DATE_CREATE_1=&arrFilter_DATE_CREATE_2=&arrFilter_DATE_ACTIVE_TO_1=&arrFilter_DATE_ACTIVE_TO_2=&arrFilter_DATE_ACTIVE_FROM_1=&arrFilter_DATE_ACTIVE_FROM_2=&g-recaptcha-response=&set_filter=%D4%E8%EB%FC%F2%F0&set_filter=Y"
+        base_data = "PAGEN_1={page}&arrFilter_pf%5Bap%5D=&arrFilter_ff%5BNAME%5D={name}&arrFilter_pf%5Bshifr_ac%5D={cert_abbr}&arrFilter_pf%5Buroven_ac%5D={cert_lvl}&arrFilter_pf%5Bnum_ac%5D={cert_number}&arrFilter_ff%5BCODE%5D={kleymo}&arrFilter_DATE_CREATE_1=&arrFilter_DATE_CREATE_2=&arrFilter_DATE_ACTIVE_TO_1=&arrFilter_DATE_ACTIVE_TO_2=&arrFilter_DATE_ACTIVE_FROM_1=&arrFilter_DATE_ACTIVE_FROM_2=&g-recaptcha-response=&set_filter=%D4%E8%EB%FC%F2%F0&set_filter=Y"
         
         data_options = {
+            "page": page,
             "name": "",
             "kleymo": "",
             "cert_abbr": "",

@@ -1,26 +1,36 @@
 import pytest
+import json
 
-from utils.naks.naks_parsers.http_workers import PersonalNaksHTTPWorker
-from utils.naks.naks_parsers.extractors import PersonalNaksExtractor
+from utils.naks.parsers.http_workers import PersonalNaksHTTPWorker
+from utils.naks.parsers.extractors import PersonalNaksExtractor
 
 
 class TestPersonalNaksExtractor:
-
-    @pytest.mark.parametrize(
-            "search_value",
-            [
-                "0324", "Кая Мехмет Коджа", "Шйам Шарма", "9H88"
-            ]
-    )
     @pytest.mark.usefixtures("personal_main_page_data")
-    def test_parse_main_page(self, search_value: str, personal_main_page_data):
+    def test_parse_main_page(self, personal_main_page_data: dict[str, list]):
         http_worker = PersonalNaksHTTPWorker()
         extractor = PersonalNaksExtractor()
 
-        page = http_worker.get_main_page(search_value)
+        for key, value in personal_main_page_data.items():
 
-        result = extractor.parse_main_page(page.text)
+            page = http_worker.get_main_page(key)
 
-        assert len(result) == len(personal_main_page_data[search_value])
+            result = extractor.parse_main_page(page.text)
 
-        assert result == personal_main_page_data[search_value]
+            assert len(result) == len(value)
+
+            assert result == value
+
+
+    @pytest.mark.usefixtures("personal_additional_page_data")
+    def test_parse_additional_page(self, personal_additional_page_data: dict[str, dict]):
+        http_worker = PersonalNaksHTTPWorker()
+        extractor = PersonalNaksExtractor()
+
+        for key, value in personal_additional_page_data.items():
+ 
+            page = http_worker.get_additional_page(key)
+
+            result = extractor.parse_additional_page(page.text)
+
+            assert result == value

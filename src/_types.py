@@ -24,7 +24,6 @@ type AnyType = str | int | float | date | datetime | None
 type Kleymo = str | int
 
 
-
 """
 ====================================================================================================
 Database Requests
