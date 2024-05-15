@@ -1,10 +1,11 @@
 from datetime import datetime, date
 from dateutil.parser import parser
-from ast import literal_eval
+from random import choices
 from json import dump, load
+from string import digits, ascii_letters
 import typing as t
 
-from click import ClickException, Option
+from click import Option
 from rich.table import Table
 
 from errors import InvalidDateException
@@ -22,17 +23,26 @@ __all__ = [
     "click_int_optional"
 ]
 
-type JsonRenderable = list | dict
 
 
 class IShortDumpShema(t.Protocol):
     def short_model_dump(self) -> dict[str, t.Any]: ...
 
 
-def save_as_json(data: JsonRenderable, path: str, indent: int = 4, ensure_ascii: bool = False) -> None:
+def gen_random_string(k: int = 1) -> str:
+    elements = choices(digits + ascii_letters, k=k)
+
+    return "".join(elements)
+
+
+def save_as_json(data: list | dict, path: str, indent: int = 4, ensure_ascii: bool = False) -> None:
     with open(path, "w", encoding="utf-8") as file:
         dump(data, file, indent=indent, ensure_ascii=ensure_ascii)
         file.close()
+
+
+def read_json(path: str) -> list | dict:
+    return load(open(path, "r", encoding="utf-8"))
 
 
 def get_options[Data](data_type: type[Data]) -> list[Option]:
@@ -125,88 +135,3 @@ def read_gtd_data_json() -> dict[str, dict[str, str | dict]]:
 def get_gtd_description_short_dict(gtd_data: dict[str, dict[str, str | dict]] = read_gtd_data_json()) -> dict[str, str]:
 
     return {value["description"]: key  for key, value in gtd_data.items()}
-
-
-def func_name_decorator(func_name: str):
-    def inner(func: (...)):
-        func.__name__ = func_name
-
-        return func
-    
-    return inner
-
-
-@func_name_decorator("date")
-def click_date_required(date_string: str) -> date:
-    _date = to_date(date_string, dayfirst=False)
-
-    if not _date:
-        raise InvalidDateException(f"Invalid date data '{date_string}'")
-    
-    return _date
-
-
-@func_name_decorator("date or null")
-def click_date_optional(date_string: str) -> date | None:
-    if not date_string or date_string == "None":
-        return None
-    
-    _date = to_date(date_string, dayfirst=False)
-
-    if not _date:
-        return None
-    
-    return _date
-
-
-@func_name_decorator("list or null")
-def click_list_optional(string: str | None) -> list[t.Any] | None:
-
-    if not string:
-        return None
-    
-    _list = literal_eval(string)
-    
-    return _list
-
-
-@func_name_decorator("float or null")
-def click_float_optional(value: str | float | None) -> float | str | None:
-    if value == None or isinstance(value, float):
-        return value
-    
-    elif value == "None":
-        return value
-    
-    else:
-        try:
-            return float(value)
-        except:
-            raise ClickException("invalid float string")
-
-
-@func_name_decorator("int or null")
-def click_int_optional(value: str | int | None) -> int | str | None:
-    if value == None or isinstance(value, int):
-        return value
-    
-    elif value == "None":
-        return value
-    
-    else:
-        try:
-            return int(value)
-        except:
-            raise ClickException("invalid float string")
-
-
-@func_name_decorator("str or null")
-def click_str_optional(value: str | int | None) -> str | None:
-    if value == None or isinstance(value, str):
-        return value
-    
-    else:
-        try:
-            return str(value)
-        except:
-            raise ClickException(f"{value} cannot be converted to str")

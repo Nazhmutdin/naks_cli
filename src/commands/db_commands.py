@@ -9,7 +9,7 @@ from click import Command, Option, Choice, ClickException, group, echo
 from pydantic import ValidationError
 from rich.console import Console
 
-from utils.funcs import filtrate_extra_args, get_options, dicts_as_console_table, save_as_json, JsonRenderable
+from utils.funcs import filtrate_extra_args, get_options, dicts_as_console_table, save_as_json
 from _types import (
     WelderData, 
     NDTData, 
@@ -76,7 +76,7 @@ class BaseAddCommand[CreateShema: BaseShema](Command):
             raise AddCommandExeption(f"adding failed\n\nDetail: {e.message}")
         
 
-    def _read_data_from_file(self, file_path: str) -> JsonRenderable:
+    def _read_data_from_file(self, file_path: str) -> dict | list:
 
         if not os.path.exists(file_path):
             raise ClickException(f"file ({file_path}) not exists")
@@ -132,7 +132,7 @@ class BaseGetCommand[Shema: BaseShema](Command):
         Console().print(dicts_as_console_table(*shemas))
 
         
-    def _save_as_json(self, data: JsonRenderable, file_name: str) -> None:
+    def _save_as_json(self, data: dict | list, file_name: str) -> None:
         path = f"{Settings.SAVES_DIR()}/{file_name}.json"
 
         save_as_json(data, path)

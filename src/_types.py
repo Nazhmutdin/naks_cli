@@ -1,8 +1,11 @@
 import typing as t
 from datetime import date, datetime
+from ast import literal_eval
 from pathlib import Path
 
-from utils.funcs import click_date_optional, click_date_required, click_float_optional, click_list_optional, click_int_optional, click_str_optional
+from click import ClickException
+
+from utils.funcs import to_date
 
 
 __all__: list[str] = [
@@ -22,6 +25,111 @@ __all__: list[str] = [
 type PathType = str | Path
 type AnyType = str | int | float | date | datetime | None
 type Kleymo = str | int
+
+
+"""
+====================================================================================================
+func types
+====================================================================================================
+"""
+
+
+def func_name_decorator(func_name: str):
+    def inner(func: (...)):
+        func.__name__ = func_name
+
+        return func
+    
+    return inner
+
+
+@func_name_decorator("date")
+def click_date_required(date_string: str) -> date:
+    _date = to_date(date_string, dayfirst=False)
+
+    if not _date:
+        raise ValueError(f"Invalid date data '{date_string}'")
+    
+    return _date
+
+
+@func_name_decorator("date or null")
+def click_date_optional(date_string: str) -> date | None:
+    if not date_string or date_string == "None":
+        return None
+    
+    _date = to_date(date_string, dayfirst=False)
+
+    if not _date:
+        return None
+    
+    return _date
+
+
+@func_name_decorator("list or null")
+def click_list_optional(string: str | None) -> list[t.Any] | None:
+
+    if not string:
+        return None
+    
+    _list = literal_eval(string)
+    
+    return _list
+
+
+@func_name_decorator("float or null")
+def click_float_optional(value: str | float | None) -> float | str | None:
+    if value == None or isinstance(value, float):
+        return value
+    
+    elif value == "None":
+        return value
+    
+    else:
+        try:
+            return float(value)
+        except:
+            raise ClickException("invalid float string")
+
+
+@func_name_decorator("int or null")
+def click_int_optional(value: str | int | None) -> int | str | None:
+    if value == None or isinstance(value, int):
+        return value
+    
+    elif value == "None":
+        return value
+    
+    else:
+        try:
+            return int(value)
+        except:
+            raise ClickException("invalid float string")
+
+
+@func_name_decorator("str or null")
+def click_str_optional(value: str | int | None) -> str | None:
+    if value == None or isinstance(value, str):
+        return value
+    
+    else:
+        try:
+            return str(value)
+        except:
+            raise ClickException(f"{value} cannot be converted to str")
+
+
+@func_name_decorator("path or null")
+def click_path_optional(value: str | None) -> Path | None:
+    if value == None:
+        return value
+    
+    path = Path(value)
+
+    if not path.exists():
+        raise ClickException(f"invalid path ({value})")
+    
+    return path
 
 
 """
